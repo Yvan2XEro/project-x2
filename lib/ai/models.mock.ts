@@ -42,3 +42,4 @@ export const claudeSonnetModel = createMockModel();
 export const claudeHaikuModel = createMockModel();
 export const cohereCommandAModel = createMockModel();
 export const cohereCommandReasoningModel = createMockModel();
+export const grok3ReasoningModel = createMockModel();
