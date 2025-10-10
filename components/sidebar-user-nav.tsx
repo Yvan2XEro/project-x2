@@ -1,11 +1,5 @@
 "use client";
 
-import { ChevronUp } from "lucide-react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import type { User } from "next-auth";
-import { signOut, useSession } from "next-auth/react";
-import { useTheme } from "next-themes";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +13,12 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { guestRegex } from "@/lib/constants";
+import { ChevronUp } from "lucide-react";
+import type { User } from "next-auth";
+import { signOut, useSession } from "next-auth/react";
+import { useTheme } from "next-themes";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { LoaderIcon } from "./icons";
 import { toast } from "./toast";
 
