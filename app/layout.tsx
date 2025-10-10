@@ -1,10 +1,11 @@
+import { ThemeProvider } from "@/components/theme-provider";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
-import { ThemeProvider } from "@/components/theme-provider";
 
-import "./globals.css";
+import ReactQueryProvider from "@/lib/context/providers";
 import { SessionProvider } from "next-auth/react";
+import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.vercel.ai"),
@@ -79,7 +80,9 @@ export default function RootLayout({
           enableSystem
         >
           <Toaster position="top-center" />
-          <SessionProvider>{children}</SessionProvider>
+          <ReactQueryProvider>
+            <SessionProvider>{children}</SessionProvider>
+          </ReactQueryProvider>
         </ThemeProvider>
       </body>
     </html>

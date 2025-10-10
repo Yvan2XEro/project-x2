@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { useActionState, useEffect, useState } from "react";
 import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
+import { useMutation } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useActionState, useState } from "react";
 import { type RegisterActionState, register } from "../actions";
 
 export default function Page() {
@@ -24,29 +25,50 @@ export default function Page() {
 
   const { update: updateSession } = useSession();
 
-  useEffect(() => {
-    if (state.status === "user_exists") {
-      toast({ type: "error", description: "Account already exists!" });
-    } else if (state.status === "failed") {
-      toast({ type: "error", description: "Failed to create account!" });
-    } else if (state.status === "invalid_data") {
-      toast({
-        type: "error",
-        description: "Failed validating your submission!",
-      });
-    } else if (state.status === "success") {
+  const mutation = useMutation({
+    mutationFn: (formData: FormData) => register(state, formData),
+    onSuccess: (state) => {
       toast({ type: "success", description: "Account created successfully!" });
 
       setIsSuccessful(true);
       updateSession();
       router.refresh();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.status, router.refresh, updateSession]);
+    },
+
+    onError: (error) => {
+      let status: string | null = null;
+      const err = typeof error === "string" ? error : error.message;
+      if (err) {
+        try {
+          const parsed = JSON.parse(err);
+          status = parsed.status;
+        } catch {
+          console.error("Failed to parse error message");
+        }
+      }
+      console.log({status})
+
+      if (status === "user_exists") {
+        toast({ type: "error", description: "User already exists!" });
+      } else if (status === "failed") {
+        toast({ type: "error", description: "Invalid credentials!" });
+      } else if (status === "invalid_data") {
+        toast({
+          type: "error",
+          description: "Failed validating your submission!",
+        });
+      } else {
+        toast({
+          type: "error",
+          description: "An unexpected error occurred!",
+        });
+      }
+    },
+  });
 
   const handleSubmit = (formData: FormData) => {
     setEmail(formData.get("email") as string);
-    formAction(formData);
+    mutation.mutate(formData);
   };
 
   return (

@@ -21,7 +21,7 @@ const anthropic = createAnthropic({
   apiKey: process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY,
 });
 
-const groq = createGroq({ // Add this instantiation
+const groq = createGroq({ 
   apiKey: process.env.GROQ_API_KEY,
 });
 
