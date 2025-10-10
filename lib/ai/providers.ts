@@ -1,4 +1,5 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createCohere } from "@ai-sdk/cohere";
 import { gateway } from "@ai-sdk/gateway";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import {
@@ -8,6 +9,9 @@ import {
 } from "ai";
 import { isTestEnvironment } from "../constants";
 
+const cohere = createCohere({
+  apiKey: process.env.NEXT_PUBLIC_COHERE_API_KEY,
+});
 const google = createGoogleGenerativeAI({
   apiKey: process.env.NEXT_PUBLIC_GOOGLE_GENERATIVE_AI_API_KEY,
 });
@@ -27,6 +31,8 @@ export const myProvider = isTestEnvironment
         geminiThinkingModel,
         claudeSonnetModel,
         claudeHaikuModel,
+        cohereCommandAModel,
+        cohereCommandReasoningModel,
       } = require("./models.mock");
       return customProvider({
         languageModels: {
@@ -38,6 +44,8 @@ export const myProvider = isTestEnvironment
           "gemini-2.0-flash-thinking-exp-1219": geminiThinkingModel,
           "claude-3-5-sonnet-20241022": claudeSonnetModel,
           "claude-3-5-haiku-20241022": claudeHaikuModel,
+          "command-a-03-2025": cohereCommandAModel,
+          "command-a-reasoning-08-2025": cohereCommandReasoningModel,
         },
       });
     })()
@@ -64,5 +72,10 @@ export const myProvider = isTestEnvironment
         "claude-3-5-haiku-20241022": anthropic(
           "claude-3-5-haiku-20241022"
         ) as any,
+        "command-a-03-2025": cohere.languageModel("command-a-03-2025"),
+        "command-a-reasoning-08-2025": wrapLanguageModel({
+          model: cohere.languageModel("command-a-reasoning-08-2025") as any,
+          middleware: extractReasoningMiddleware({ tagName: "thinking" }),
+        }),
       },
     });

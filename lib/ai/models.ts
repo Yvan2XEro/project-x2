@@ -38,4 +38,15 @@ export const chatModels: ChatModel[] = [
     name: "Claude 3.5 Haiku",
     description: "Fast and efficient model for quick responses",
   },
+  {
+    id: "command-a-03-2025",
+    name: "Cohere Command A",
+    description: "Fast and efficient model for quick responses",
+  },
+  {
+    id: "command-a-reasoning-08-2025",
+    name: "Cohere Command A Reasoning",
+    description:
+      "Uses advanced chain-of-thought reasoning for complex problems",
+  },
 ];

@@ -40,3 +40,5 @@ export const geminiFlashModel = createMockModel();
 export const geminiThinkingModel = createMockModel();
 export const claudeSonnetModel = createMockModel();
 export const claudeHaikuModel = createMockModel();
+export const cohereCommandAModel = createMockModel();
+export const cohereCommandReasoningModel = createMockModel();
