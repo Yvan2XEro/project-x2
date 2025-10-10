@@ -30,6 +30,8 @@ export const postRequestBodySchema = z.object({
     "claude-3-5-haiku-20241022",
     "command-a-03-2025",
     "command-a-reasoning-08-2025",
+    "groq-llama3-70b",
+    "grok-3-reasoning",
   ]),
   selectedVisibilityType: z.enum(["public", "private"]),
 });

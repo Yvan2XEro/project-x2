@@ -48,5 +48,13 @@ export const chatModels: ChatModel[] = [
     name: "Cohere Command A Reasoning",
     description:
       "Uses advanced chain-of-thought reasoning for complex problems",
+    id: "groq-llama3-70b",
+    name: "Groq Llama 3.3 70B Versatile",
+    description: "Ultra-fast inference for Llama 3.3 70B Versatile via Groq",
+  },
+ {
+    id: "grok-3-reasoning",
+    name: "Grok 3 Reasoning",
+    description: "xAI's flagship Grok 3 with enhanced chain-of-thought for deep analysis",
   },
 ];
