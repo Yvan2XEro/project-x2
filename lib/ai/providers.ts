@@ -82,10 +82,11 @@ export const myProvider = isTestEnvironment
         "command-a-reasoning-08-2025": wrapLanguageModel({
           model: cohere.languageModel("command-a-reasoning-08-2025") as any,
           middleware: extractReasoningMiddleware({ tagName: "thinking" }),
+        }),
         "groq-llama3-70b": groq("llama-3.3-70b-versatile"),
         "grok-3-reasoning": wrapLanguageModel({
-          model: gateway.languageModel("xai/grok-3"), // Base Grok 3 model ID from xAI
-          middleware: extractReasoningMiddleware({ tagName: "think" }), // Enables chain-of-thought
+          model: gateway.languageModel("xai/grok-3"), 
+          middleware: extractReasoningMiddleware({ tagName: "think" }), 
         }),
       },
     });
