@@ -6,7 +6,18 @@ import { createUser, getUser } from "@/lib/db/queries";
 
 import { signIn } from "./auth";
 
-const authFormSchema = z.object({
+const registerFormSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  first_name: z.string().min(2),
+  last_name: z.string().min(2),
+  linkedin: z.string().optional(),
+  company_name: z.string().min(2),
+  role: z.string().min(2),
+  interests: z.array(z.string()).min(3),
+});
+
+const loginFormSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
@@ -20,7 +31,7 @@ export const login = async (
   formData: FormData
 ): Promise<LoginActionState> => {
   try {
-    const validatedData = authFormSchema.parse({
+    const validatedData = loginFormSchema.parse({
       email: formData.get("email"),
       password: formData.get("password"),
     });
@@ -56,9 +67,15 @@ export const register = async (
   formData: FormData
 ): Promise<RegisterActionState> => {
   try {
-    const validatedData = authFormSchema.parse({
+    const validatedData = registerFormSchema.parse({
       email: formData.get("email"),
       password: formData.get("password"),
+      first_name: formData.get("first_name"),
+      last_name: formData.get("last_name"),
+      linkedin: formData.get("linkedin") || undefined,
+      company_name: formData.get("company_name"),
+      role: formData.get("role"),
+      interests: formData.getAll("interests") as string[],
     });
 
     const [user] = await getUser(validatedData.email);
@@ -66,7 +83,16 @@ export const register = async (
     if (user) {
       throw new Error(JSON.stringify({ status: "user_exists" }));
     }
-    await createUser(validatedData.email, validatedData.password);
+    await createUser({
+      email: validatedData.email,
+      password: validatedData.password,
+      company_name: validatedData.company_name,
+      first_name: validatedData.first_name,
+      last_name: validatedData.last_name,
+      interests: validatedData.interests,
+      role: validatedData.role,
+      linkedin: validatedData.linkedin,
+    });
     await signIn("credentials", {
       email: validatedData.email,
       password: validatedData.password,

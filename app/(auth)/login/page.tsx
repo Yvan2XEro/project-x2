@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 
-import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
 import { toast } from "@/components/toast";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useMutation } from "@tanstack/react-query";
+import Form from "next/form";
 import { type LoginActionState, login } from "../actions";
 
 export default function Page() {
@@ -101,7 +103,48 @@ export default function Page() {
             Use your email and password to sign in
           </p>
         </div>
-        <AuthForm action={handleSubmit} defaultEmail={email}>
+        <Form
+          action={handleSubmit}
+          className="flex flex-col gap-4 px-4 sm:px-16"
+        >
+          <div className="flex flex-col gap-2">
+            <Label
+              className="font-normal text-zinc-600 dark:text-zinc-400"
+              htmlFor="email"
+            >
+              Email Address
+            </Label>
+
+            <Input
+              autoComplete="email"
+              autoFocus
+              className="bg-muted text-md md:text-sm"
+              defaultValue={email}
+              id="email"
+              name="email"
+              placeholder="user@acme.com"
+              required
+              type="email"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label
+              className="font-normal text-zinc-600 dark:text-zinc-400"
+              htmlFor="password"
+            >
+              Password
+            </Label>
+
+            <Input
+              className="bg-muted text-md md:text-sm"
+              id="password"
+              name="password"
+              required
+              type="password"
+            />
+          </div>
+
           <SubmitButton isSuccessful={isSuccessful}>Sign in</SubmitButton>
           <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
             {"Don't have an account? "}
@@ -113,7 +156,7 @@ export default function Page() {
             </Link>
             {" for free."}
           </p>
-        </AuthForm>
+        </Form>
       </div>
     </div>
   );
