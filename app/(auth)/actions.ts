@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { createUser, getUser } from "@/lib/db/queries";
 
+import { User } from "@/lib/db/schema";
 import { signIn } from "./auth";
 
 const registerFormSchema = z.object({
@@ -66,6 +67,7 @@ export const register = async (
   _: RegisterActionState,
   formData: FormData
 ): Promise<RegisterActionState> => {
+  let user: User[] | null = null;
   try {
     const validatedData = registerFormSchema.parse({
       email: formData.get("email"),
@@ -78,9 +80,10 @@ export const register = async (
       interests: formData.getAll("interests") as string[],
     });
 
-    const [user] = await getUser(validatedData.email);
+    user = await getUser(validatedData.email);
+    console.log({user})
 
-    if (user) {
+    if (user && user.length > 0) {
       throw new Error(JSON.stringify({ status: "user_exists" }));
     }
     await createUser({
@@ -103,6 +106,9 @@ export const register = async (
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(JSON.stringify({ status: "invalid_data" }));
+    }
+    if (user && user.length > 0) {
+      throw new Error(JSON.stringify({ status: "user_exists" }));
     }
 
     throw new Error(JSON.stringify({ status: "failed" }));

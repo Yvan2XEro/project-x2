@@ -114,6 +114,7 @@ export default function Page() {
       }
     },
     onError: (error: Error) => {
+      console.log({error})
       let status: string | null = null;
       const err = error.message;
       
