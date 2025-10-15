@@ -21,8 +21,8 @@ export const user = pgTable("User", {
   last_name: varchar("last_name", { length: 64 }).notNull(),
   linkedin: varchar("linkedin", { length: 255 }),
   company_name: varchar("company_name", { length: 64 }).notNull(),
-  role: varchar("role", { length: 64 }).notNull(),
-  interests:text("interests").array().notNull(),
+  role: varchar("role", { length: 64 }),
+  interests:text("interests").array(),
 });
 
 export type User = InferSelectModel<typeof user>;

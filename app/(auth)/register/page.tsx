@@ -31,25 +31,6 @@ import { useMutation } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-const registerSchema = z
-  .object({
-    first_name: z.string().min(2, "First name must be at least 2 characters long"),
-    last_name: z.string().min(2, "Last name must be at least 2 characters long"),
-    email: z.string().email("Invalid email address"),
-    linkedin: z.string().optional(),
-    company_name: z.string().min(2, "Company name must be at least 2 characters long"),
-    role: z.string().min(2, "Role must be at least 2 characters long"),
-    interests: z.array(z.string()).min(3, "Please select at least 3 areas of interest"),
-    password: z.string().min(8, "Password must be at least 8 characters long"),
-    confirm_password: z.string().min(8, "Please confirm your password"),
-  })
-  .refine((data) => data.password === data.confirm_password, {
-    message: "Passwords do not match",
-    path: ["confirm_password"],
-  });
-
-type RegisterForm = z.infer<typeof registerSchema>;
-
 const researchTypes = [
   "Market Entry & Expansion",
   "Competitive Landscape Analysis",
@@ -63,6 +44,31 @@ const researchTypes = [
   "Strategy Formulation / Business Design",
 ];
 
+const registerSchema = z
+  .object({
+    first_name: z
+      .string()
+      .min(2, "First name must be at least 2 characters long"),
+    last_name: z
+      .string()
+      .min(2, "Last name must be at least 2 characters long"),
+    email: z.string().email("Invalid email address"),
+    linkedin: z.string().optional(),
+    company_name: z
+      .string()
+      .min(2, "Company name must be at least 2 characters long"),
+    role: z.string().optional(),
+    interests: z.array(z.string()).optional(),
+    password: z.string().min(8, "Password must be at least 8 characters long"),
+    confirm_password: z.string().min(8, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirm_password, {
+    message: "Passwords do not match",
+    path: ["confirm_password"],
+  });
+
+type RegisterForm = z.infer<typeof registerSchema>;
+
 export default function Page() {
   const [open, setOpen] = useState(false);
   const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
@@ -70,7 +76,17 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(false);
   const { update: updateSession } = useSession();
   const router = useRouter();
-  
+  const [hiddentRoleInput, setHiddenRoleInput] = useState(true);
+  const [openRoleInput, setOpenRoleInput] = useState(false);
+  const roles = [
+    "Consultant (Strategy / Management)",
+    "Private Equity / VC Professional",
+    "Corporate Strategy / M&A",
+    "Investment Analyst / Portfolio Manager",
+    "Founder",
+    "Other (Please Specify)",
+  ];
+
   const {
     register,
     handleSubmit,
@@ -87,19 +103,19 @@ export default function Page() {
   });
 
   const mutation = useMutation({
-  mutationFn: async (data: RegisterForm) => {
-    const formData = new FormData();
+    mutationFn: async (data: RegisterForm) => {
+      const formData = new FormData();
 
-    Object.entries(data).forEach(([key, value]) => {
-      if (key === "interests" && Array.isArray(value)) {
-        value.forEach((item) => formData.append("interests", item));
-      } else if (value !== undefined && value !== null) {
-        formData.append(key, String(value));
-      }
-    });
+      Object.entries(data).forEach(([key, value]) => {
+        if (key === "interests" && Array.isArray(value)) {
+          value.forEach((item) => formData.append("interests", item));
+        } else if (value !== undefined && value !== null) {
+          formData.append(key, String(value));
+        }
+      });
 
-    return registerAction({ status: "idle" }, formData);
-  },
+      return registerAction({ status: "idle" }, formData);
+    },
     onSuccess: (state) => {
       if (state.status === "success") {
         toast({
@@ -114,10 +130,9 @@ export default function Page() {
       }
     },
     onError: (error: Error) => {
-      console.log({error})
       let status: string | null = null;
       const err = error.message;
-      
+
       if (err) {
         try {
           const parsed = JSON.parse(err);
@@ -152,13 +167,12 @@ export default function Page() {
   const onSubmit = async (data: RegisterForm) => {
     try {
       setIsLoading(true);
-      
-      // Clean up the data before submission
+
       const cleanedData = {
         ...data,
-        linkedin: data.linkedin || "", // Ensure linkedin is always a string
+        linkedin: data.linkedin || "",
       };
-      
+
       await mutation.mutateAsync(cleanedData);
     } catch (error) {
       // Error handling is done in onError callback
@@ -213,7 +227,9 @@ export default function Page() {
                 {...register("first_name")}
               />
               {errors.first_name && (
-                <p className="text-red-500 text-xs">{errors.first_name.message}</p>
+                <p className="text-red-500 text-xs">
+                  {errors.first_name.message}
+                </p>
               )}
             </div>
 
@@ -226,7 +242,9 @@ export default function Page() {
                 {...register("last_name")}
               />
               {errors.last_name && (
-                <p className="text-red-500 text-xs">{errors.last_name.message}</p>
+                <p className="text-red-500 text-xs">
+                  {errors.last_name.message}
+                </p>
               )}
             </div>
           </div>
@@ -247,7 +265,8 @@ export default function Page() {
 
           <div className="space-y-2">
             <Label htmlFor="linkedin">
-              LinkedIn Profile <span className="text-muted-foreground">(Optional)</span>
+              LinkedIn Profile{" "}
+              <span className="text-muted-foreground">(Optional)</span>
             </Label>
             <Input
               id="linkedin"
@@ -268,18 +287,77 @@ export default function Page() {
                 {...register("company_name")}
               />
               {errors.company_name && (
-                <p className="text-red-500 text-xs">{errors.company_name.message}</p>
+                <p className="text-red-500 text-xs">
+                  {errors.company_name.message}
+                </p>
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="grid gap-2">
               <Label htmlFor="role">Role / Department</Label>
-              <Input
-                id="role"
-                placeholder="Product Manager"
-                className="h-11"
-                {...register("role")}
-              />
+
+              {hiddentRoleInput && (
+                <Popover open={openRoleInput} onOpenChange={setOpenRoleInput}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openRoleInput}
+                      className="w-full justify-between"
+                    >
+                      {watch("role") || "Select a role..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search role..." />
+                      <CommandList>
+                        <CommandEmpty>No roles found.</CommandEmpty>
+                        <CommandGroup>
+                          {roles.map((role) => (
+                            <CommandItem
+                              key={role}
+                              value={role}
+                              onSelect={() => {
+                                if (role === "Other (Please Specify)") {
+                                  setValue("role", "");
+                                  setHiddenRoleInput(false);
+                                } else {
+                                  setValue("role", role);
+                                  setHiddenRoleInput(true);
+                                }
+                                setOpenRoleInput(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  role === watch("role")
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              {role}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              {/* Manual Input (visible when hiddentRoleInput = false) */}
+              {!hiddentRoleInput && (
+                <Input
+                  id="role"
+                  placeholder="Product Manager"
+                  className="h-11 border"
+                  {...register("role")}
+                />
+              )}
+
               {errors.role && (
                 <p className="text-red-500 text-xs">{errors.role.message}</p>
               )}
@@ -346,7 +424,11 @@ export default function Page() {
             {selectedInterests.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {selectedInterests.map((interest) => (
-                  <Badge key={interest} variant="secondary" className="gap-1 pr-1">
+                  <Badge
+                    key={interest}
+                    variant="secondary"
+                    className="gap-1 pr-1"
+                  >
                     <span className="text-xs">{interest}</span>
                     <button
                       type="button"
@@ -371,7 +453,9 @@ export default function Page() {
                 {...register("password")}
               />
               {errors.password && (
-                <p className="text-red-500 text-xs">{errors.password.message}</p>
+                <p className="text-red-500 text-xs">
+                  {errors.password.message}
+                </p>
               )}
             </div>
 
@@ -396,7 +480,11 @@ export default function Page() {
             className="h-11 w-full font-medium text-base"
             disabled={isSuccessful || isLoading}
           >
-            {isLoading ? "Creating Account..." : isSuccessful ? "Account Created!" : "Create Account"}
+            {isLoading
+              ? "Creating Account..."
+              : isSuccessful
+              ? "Account Created!"
+              : "Create Account"}
           </Button>
 
           <p className="text-center text-muted-foreground text-sm">

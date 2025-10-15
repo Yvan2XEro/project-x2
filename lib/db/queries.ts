@@ -61,8 +61,8 @@ type IUser = {
   last_name: string;
   linkedin?: string;
   company_name: string;
-  role: string;
-  interests: string[];
+  role?: string;
+  interests?: string[];
 };
 export async function createUser({
   email,
@@ -241,6 +241,7 @@ export async function getChatsByUserId({
       hasMore,
     };
   } catch (_error) {
+    console.log({ _error })
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get chats by user id"
