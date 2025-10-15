@@ -1,7 +1,7 @@
+import { chatModels } from "@/lib/ai/models";
+import { expect, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { expect, type Page } from "@playwright/test";
-import { chatModels } from "@/lib/ai/models";
 
 const CHAT_ID_REGEX =
   /^http:\/\/localhost:3000\/chat\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
