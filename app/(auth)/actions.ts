@@ -14,8 +14,8 @@ const registerFormSchema = z.object({
   last_name: z.string().min(2),
   linkedin: z.string().optional(),
   company_name: z.string().min(2),
-  role: z.string().min(2),
-  interests: z.array(z.string()).min(3),
+  role: z.string().optional(),
+  interests: z.array(z.string()).optional(),
 });
 
 const loginFormSchema = z.object({
@@ -43,7 +43,7 @@ export const login = async (
       redirect: false,
     });
 
-    return { status: "success" };
+    return { status: "success"};
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(JSON.stringify({ status: "invalid_data" }));
@@ -76,12 +76,11 @@ export const register = async (
       last_name: formData.get("last_name"),
       linkedin: formData.get("linkedin") || undefined,
       company_name: formData.get("company_name"),
-      role: formData.get("role"),
+      role: formData.get("role") || undefined,
       interests: formData.getAll("interests") as string[],
     });
 
     user = await getUser(validatedData.email);
-    console.log({user})
 
     if (user && user.length > 0) {
       throw new Error(JSON.stringify({ status: "user_exists" }));
@@ -92,9 +91,9 @@ export const register = async (
       company_name: validatedData.company_name,
       first_name: validatedData.first_name,
       last_name: validatedData.last_name,
-      interests: validatedData.interests,
-      role: validatedData.role,
-      linkedin: validatedData.linkedin,
+      interests: validatedData.interests || [],
+      role: validatedData.role || "",
+      linkedin: validatedData.linkedin || "",
     });
     await signIn("credentials", {
       email: validatedData.email,
