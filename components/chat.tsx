@@ -83,8 +83,8 @@ export function Chat({
     generateId: generateUUID,
 
     transport: new DefaultChatTransport({
-      // api: "/api/chat",
-      api: "/api/structured_output",
+      api: "/api/chat",
+      // api: "/api/agents/structured_output",
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest(request) {
         return {
