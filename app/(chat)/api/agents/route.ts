@@ -1,4 +1,4 @@
-import { AgentOrchestrator } from '@/lib/agents/orchestrator';
+import { AgentOrchestrator } from '@/lib/lang-graph/orchestrator/orchestrator';
 import { NextRequest, NextResponse } from 'next/server';
 
 // export const runtime = 'nodejs';

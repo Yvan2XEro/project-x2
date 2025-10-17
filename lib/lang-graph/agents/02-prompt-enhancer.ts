@@ -2,7 +2,7 @@ import { normalizeUserInput } from '@/utils/normalize-user-input';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { z } from 'zod';
-import { AgentNode } from './graph-state';
+import { AgentNode } from '../graph-state/graph-state';
 
 export type UserInput =
   | string

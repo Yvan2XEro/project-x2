@@ -1,7 +1,9 @@
 import { getUserProfile } from "@/utils/user-profile";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { z } from "zod";
-export const triagerAgent = async ({
+import { AgentNode } from "../graph-state/graph-state";
+
+export const triagerAgent: AgentNode = async ({
   userInput,
 }: {
   userInput: string;
