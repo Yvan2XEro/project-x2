@@ -20,6 +20,7 @@ export const triagerAgent: AgentNode = async ({
   //   temperature: 0.7,
   //   model: "gpt-4o",
   // });
+  console.log({company: state.userProfile?.company_name})
 
   const schema = z.object({
     sector: z

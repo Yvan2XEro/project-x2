@@ -1,21 +1,32 @@
 import { AgentNode } from "../graph-state/graph-state";
 
-export const dataConnectorAgent: AgentNode = async ({
-  userInput,
-}: {
-  userInput: string;
-}) => {
-  
+export const dataConnectorAgent: AgentNode = async (state) => {
+  const sources = state.dataSources?.preferred_sources || [];
+
+  const connectedData = await Promise.all(
+    sources.map(async (source: any) => {
+      try {
+        const response = await fetch(source.url);
+        const data = await response.json();
+        return { source: source.name, data };
+      } catch (err: any) {
+        return { source: source.name, error: err.message };
+      }
+    })
+  );
+
+  console.log({connectedData})
 
   return {
-    dataConnectorResult: userInput, //must be change
+    ...state,
+    connectedData,
     executionHistory: [
-      // ...state.executionHistory,
+      ...state.executionHistory,
       {
         agent: "data_connector",
-        timestamp: new Date(),
         status: "completed",
-        output: userInput, //must be change
+        timestamp: new Date(),
+        output: `Connected to ${connectedData.length} data sources.`,
       },
     ],
   };
