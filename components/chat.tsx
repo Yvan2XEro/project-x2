@@ -19,6 +19,7 @@ import { ChatSDKError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
+import { getUserProfile } from "@/utils/user-profile";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useSearchParams } from "next/navigation";
@@ -83,8 +84,9 @@ export function Chat({
     generateId: generateUUID,
 
     transport: new DefaultChatTransport({
-      api: "/api/chat",
+      // api: "/api/chat",
       // api: "/api/agents/structured_output",
+      api: "/api/agents",
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest(request) {
         return {
@@ -92,6 +94,8 @@ export function Chat({
             id: request.id,
             // message: request.messages.at(-1),
              messages: request.messages,
+             action: 'execute-full',
+             userProfile: getUserProfile(),
             selectedChatModel: currentModelIdRef.current,
             selectedVisibilityType: visibilityType,
             ...request.body,
