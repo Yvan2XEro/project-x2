@@ -5,8 +5,6 @@ export const userPersonaAgent: AgentNode = async ({
 }: {
   userInput: string;
 }) => {
-  
-
   return {
     userPersonaResult: userInput, //must be change
     executionHistory: [

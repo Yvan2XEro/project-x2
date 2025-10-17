@@ -86,16 +86,16 @@ export function Chat({
     transport: new DefaultChatTransport({
       // api: "/api/chat",
       // api: "/api/agents/structured_output",
-      api: "/api/agents",
+      api: "/api/chat",
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest(request) {
         return {
           body: {
             id: request.id,
-            // message: request.messages.at(-1),
-             messages: request.messages,
-             action: 'execute-full',
-             userProfile: getUserProfile(),
+            message: request.messages.at(-1),
+            messages: request.messages,
+            action: "execute-full",
+            userProfile: getUserProfile(),
             selectedChatModel: currentModelIdRef.current,
             selectedVisibilityType: visibilityType,
             ...request.body,

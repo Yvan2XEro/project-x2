@@ -15,17 +15,19 @@ import {
   getChatById,
   getMessageCountByUserId,
   getMessagesByChatId,
+  getUser,
   saveChat,
   saveMessages,
   updateChatLastContextById,
 } from "@/lib/db/queries";
+import type { User } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
+import { AgentOrchestrator } from "@/lib/lang-graph/orchestrator/orchestrator";
 import type { ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { geolocation } from "@vercel/functions";
 import {
-  convertToModelMessages,
   createUIMessageStream,
   JsonToSseTransformStream,
   smoothStream,
@@ -86,7 +88,6 @@ export function getStreamContext() {
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
-
   try {
     const json = await request.json();
     requestBody = postRequestBodySchema.parse(json);
@@ -111,6 +112,11 @@ export async function POST(request: Request) {
 
     if (!session?.user) {
       return new ChatSDKError("unauthorized:chat").toResponse();
+    }
+    let userProfile: User | undefined;
+
+    if (session.user.email && session.user.type !== "guest") {
+      userProfile = (await getUser(session.user.email))[0];
     }
 
     const userType: UserType = session.user.type;
@@ -142,6 +148,9 @@ export async function POST(request: Request) {
         visibility: selectedVisibilityType,
       });
     }
+
+    const orchestrator = new AgentOrchestrator();
+    const finalState = await orchestrator.execute(message, userProfile);
 
     const messagesFromDb = await getMessagesByChatId({ id });
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
@@ -178,7 +187,13 @@ export async function POST(request: Request) {
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
-          messages: convertToModelMessages(uiMessages),
+          messages: [
+            // ...convertToModelMessages(uiMessages),
+            {
+              role: "assistant",
+              content: finalState.enhancedPrompt.enhanced_prompt,
+            },
+          ],
           stopWhen: stepCountIs(5),
           experimental_activeTools:
             selectedChatModel === "chat-model-reasoning"
