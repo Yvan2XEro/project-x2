@@ -1,5 +1,5 @@
+import { usedModel } from "@/lib/constants";
 import { getUserProfile } from "@/utils/user-profile";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { z } from "zod";
 import { AgentNode } from "../graph-state/graph-state";
 
@@ -11,17 +11,7 @@ export const triagerAgent: AgentNode = async ({
   const userProfile = await getUserProfile();
   const state = { userInput, userProfile: userProfile?.[0], executionHistory: [] };
   
-  const model = new ChatGoogleGenerativeAI({
-    model: "gemini-2.0-flash-exp",
-    temperature: 0.7,
-    apiKey: process.env.NEXT_PUBLIC_GOOGLE_GENERATIVE_AI_API_KEY,
-  });
-  // const model = new ChatOpenAI({
-  //   temperature: 0.7,
-  //   model: "gpt-4o",
-  // });
-  console.log({company: state.userProfile?.company_name})
-
+  const model = usedModel;
   const schema = z.object({
     sector: z
       .string()

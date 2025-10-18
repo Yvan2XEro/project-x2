@@ -252,7 +252,7 @@ export async function POST(request: Request) {
           },
         });
 
-        result.consumeStream();
+        // result.consumeStream();
 
         dataStream.merge(
           result.toUIMessageStream({

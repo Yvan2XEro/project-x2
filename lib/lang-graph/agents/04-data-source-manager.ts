@@ -1,4 +1,4 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { usedModel } from "@/lib/constants";
 import { z } from "zod";
 import { DATA_SOURCES_REPOSITORY } from "../data-resources/data-source-for-test";
 import { AgentNode, AgentStateType } from "../graph-state/graph-state";
@@ -54,11 +54,7 @@ export const dataSourceManagerAgent: AgentNode = async (state: AgentStateType) =
 
 async function detectCompanies(text: string): Promise<DetectedCompany[]> {
   try {
-    const model = new ChatGoogleGenerativeAI({
-      model: "gemini-2.0-flash-exp",
-      temperature: 0.3,
-      apiKey: process.env.NEXT_PUBLIC_GOOGLE_GENERATIVE_AI_API_KEY,
-    });
+    const model = usedModel;
 
     const schema = z.object({
       companies: z.array(

@@ -87,7 +87,6 @@ export async function createUser({
       linkedin,
       interests
     });
-    console.log({result});
     return result;
   } catch (_error) {
     throw new ChatSDKError("bad_request:database", "Failed to create user");
@@ -457,6 +456,7 @@ export async function getMessageById({ id }: { id: string }) {
   try {
     return await db.select().from(message).where(eq(message.id, id));
   } catch (_error) {
+    console.log({ _error });
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get message by id"

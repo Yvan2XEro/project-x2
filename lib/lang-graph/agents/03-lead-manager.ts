@@ -1,4 +1,4 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { usedModel } from "@/lib/constants";
 import { z } from "zod";
 import { AgentNode, AgentStateType } from "../graph-state/graph-state";
 
@@ -18,17 +18,8 @@ export const leadManagerAgent: AgentNode = async (state: AgentStateType) => {
       ],
     };
   }
-
-  // const model = new ChatOpenAI({
-  //   temperature: 0.3,
-  //   model: "gpt-4o",
-  // });
-
-  const model = new ChatGoogleGenerativeAI({
-    model: "gemini-2.0-flash-exp",
-    temperature: 0.7,
-    apiKey: process.env.NEXT_PUBLIC_GOOGLE_GENERATIVE_AI_API_KEY,
-  });
+  
+  const model = usedModel;
 
   const schema = z.object({
     project_title: z.string(),

@@ -1,6 +1,6 @@
+import { usedModel } from '@/lib/constants';
 import { normalizeUserInput } from '@/utils/normalize-user-input';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
-import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { z } from 'zod';
 import { AgentNode } from '../graph-state/graph-state';
 
@@ -96,12 +96,7 @@ export const promptEnhancerAgent: AgentNode = async (state) => {
       ['human', 'User query: {input}'],
     ]);
 
-    // Model Configuration
-    const model = new ChatGoogleGenerativeAI({
-      model: 'gemini-2.0-flash-exp',
-      temperature: 0.7,
-      apiKey: process.env.NEXT_PUBLIC_GOOGLE_GENERATIVE_AI_API_KEY,
-    });
+    const model = usedModel;
 
     // Expected Output Schema
     const schema = z.object({
@@ -169,7 +164,6 @@ export const promptEnhancerAgent: AgentNode = async (state) => {
     };
 
   } catch (error: any) {
-    console.log({error})
     return {
       executionHistory: [
         ...state.executionHistory,
