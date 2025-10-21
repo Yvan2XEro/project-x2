@@ -1,8 +1,7 @@
 import { END, StateGraph } from "@langchain/langgraph";
-import { triagerAgent } from "../agents/01-triager";
-import { promptEnhancerAgent } from "../agents/02-prompt-enhancer";
 import { leadManagerAgent } from "../agents/03-lead-manager";
 import { dataSourceManagerAgent } from "../agents/04-data-source-manager";
+import { promptEnhancerAgent } from "../agents/tiager-prompt-enhancer";
 import { AgentState } from "../graph-state/graph-state";
 
 export class AgentOrchestrator {
@@ -15,7 +14,6 @@ export class AgentOrchestrator {
   private buildGraph() {
     const workflow = new StateGraph(AgentState);
 
-    workflow.addNode("triager", triagerAgent);
     workflow.addNode("prompt_enhancer", promptEnhancerAgent);
     workflow.addNode("lead_manager", leadManagerAgent);
     workflow.addNode("data_source_manager", dataSourceManagerAgent);
@@ -26,9 +24,9 @@ export class AgentOrchestrator {
     // workflow.addNode("data_presenter", dataPresenterAgent);
     // workflow.addNode("reviewer", reviewerAgent);
 
-    workflow.setEntryPoint("triager");
-    workflow.addEdge("triager", "prompt_enhancer");
+    workflow.setEntryPoint("prompt_enhancer");
     workflow.addEdge("prompt_enhancer", "lead_manager");
+    // workflow.addEdge("lead_manager", END);
     workflow.addEdge("lead_manager", "data_source_manager");
     workflow.addEdge("data_source_manager", END);
     // workflow.addEdge("data_connector", END);
@@ -63,9 +61,8 @@ export class AgentOrchestrator {
     const initialState = {
       userInput,
       userProfile,
-      currentAgent: "triager",
+      currentAgent: "prompt_enhancer",
       executionHistory: [],
-      triageResult: undefined,
       enhancedPrompt: undefined,
       scope: undefined,
       dataSources: undefined,
@@ -87,9 +84,8 @@ export class AgentOrchestrator {
     const initialState = {
       userInput,
       userProfile,
-      currentAgent: "triager",
+      currentAgent: "prompt_enhancer",
       executionHistory: [],
-      triageResult: undefined,
       enhancedPrompt: undefined,
       scope: undefined,
       dataSources: undefined,

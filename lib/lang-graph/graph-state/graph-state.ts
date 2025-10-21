@@ -1,31 +1,18 @@
-// lib/agents/graph-state.ts
-
 import type { ChatMessage } from "@/lib/types";
 import { Annotation } from "@langchain/langgraph";
 
-// Create annotated state instead of interface
 export const AgentState = Annotation.Root({
-  // Input
   userInput: Annotation<ChatMessage>(),
-  // userProfile: Annotation<{
-  //   email: string;
-  //   linkedIn?: string;
-  //   role?: string;
-  //   company?: string;
-  // } | undefined>(),
-
-  // Agent outputs
-  triageResult: Annotation<
-    | {
-        sector: string;
-        function: string;
-        confidence: number;
-      }
-    | undefined
-  >(),
-
+  
   enhancedPrompt: Annotation<
     | {
+        triageResult: {
+          sector: string;
+          function: string;
+        };
+        geographic_reference?: string;
+        timeframe?: string;
+        specific_factors_mentioned?: string[];
         analysis_type: string;
         recommended_framework: string;
         framework_components: Array<{

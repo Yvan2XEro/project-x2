@@ -1,5 +1,12 @@
 "use client";
 
+import { saveChatModelAsCookie } from "@/app/(chat)/actions";
+import { SelectItem } from "@/components/ui/select";
+import { chatModels } from "@/lib/ai/models";
+import { myProvider } from "@/lib/ai/providers";
+import type { Attachment, ChatMessage } from "@/lib/types";
+import type { AppUsage } from "@/lib/usage";
+import { cn } from "@/lib/utils";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { Trigger } from "@radix-ui/react-select";
 import type { UIMessage } from "ai";
@@ -18,13 +25,6 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
-import { saveChatModelAsCookie } from "@/app/(chat)/actions";
-import { SelectItem } from "@/components/ui/select";
-import { chatModels } from "@/lib/ai/models";
-import { myProvider } from "@/lib/ai/providers";
-import type { Attachment, ChatMessage } from "@/lib/types";
-import type { AppUsage } from "@/lib/usage";
-import { cn } from "@/lib/utils";
 import { Context } from "./elements/context";
 import {
   PromptInput,
@@ -257,11 +257,12 @@ function PureMultimodalInput({
         className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
         onSubmit={(event) => {
           event.preventDefault();
-          if (status !== "ready") {
-            toast.error("Please wait for the model to finish its response!");
-          } else {
-            submitForm();
-          }
+          submitForm();
+          // if (status !== "ready") {
+          //   toast.error("Please wait for the model to finish its response!");
+          // } else {
+          //   submitForm();
+          // }
         }}
       >
         {(attachments.length > 0 || uploadQueue.length > 0) && (
@@ -350,6 +351,9 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.status !== nextProps.status) {
+      return false;
+    }
+    if (!prevProps.status) {
       return false;
     }
     if (!equal(prevProps.attachments, nextProps.attachments)) {

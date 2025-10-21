@@ -190,8 +190,10 @@ export async function POST(request: Request) {
           messages: [
             // ...convertToModelMessages(uiMessages),
             {
-              role: "assistant",
-              content: finalState.enhancedPrompt.enhanced_prompt,
+              // role: "assistant",
+              role: "user",
+              // content: finalState.enhancedPrompt.enhanced_prompt,
+              content: finalState.dataSources.data_source_manager,
             },
           ],
           stopWhen: stepCountIs(5),

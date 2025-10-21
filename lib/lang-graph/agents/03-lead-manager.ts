@@ -3,63 +3,63 @@ import { z } from "zod";
 import { AgentNode, AgentStateType } from "../graph-state/graph-state";
 
 export const leadManagerAgent: AgentNode = async (state: AgentStateType) => {
-  const { enhancedPrompt, triageResult } = state;
+  try {
+    const { enhancedPrompt } = state;
+    const model = usedModel;
 
-  if (!enhancedPrompt) {
-    return {
-      executionHistory: [
-        ...state.executionHistory,
-        {
-          agent: "lead_manager",
-          timestamp: new Date(),
-          status: "error",
-          output: "No enhanced prompt available for scope planning",
-        },
-      ],
-    };
-  }
-  
-  const model = usedModel;
+    if (!enhancedPrompt) {
+      return {
+        executionHistory: [
+          ...state.executionHistory,
+          {
+            agent: "lead_manager",
+            timestamp: new Date(),
+            status: "error",
+            output: "No enhanced prompt available for scope planning",
+          },
+        ],
+        currentAgent: "completed",
+      };
+    }
 
-  const schema = z.object({
-    project_title: z.string(),
-    total_sections: z.number(),
-    estimated_completion_time: z.string(),
-    execution_strategy: z.enum([
-      "fully_parallel",
-      "fully_sequential",
-      "hybrid",
-    ]),
-    sections: z.array(
-      z.object({
-        section_id: z.string(),
-        title: z.string(),
-        description: z.string(),
-        assigned_agents: z.array(z.string()),
-        checklist: z.array(z.string()),
-        dependencies: z.array(z.string()),
-        priority: z.enum(["critical", "high", "medium", "low"]),
-        estimated_duration: z.string(),
-        data_requirements: z.array(z.string()),
-        success_criteria: z.array(z.string()),
-      })
-    ),
-    risk_assessment: z.object({
-      data_availability_risk: z.enum(["low", "medium", "high"]),
-      complexity_risk: z.enum(["low", "medium", "high"]),
-      timeline_risk: z.enum(["low", "medium", "high"]),
-      mitigation_strategy: z.string(),
-    }),
-  });
+    const schema = z.object({
+      project_title: z.string(),
+      total_sections: z.number(),
+      execution_strategy: z.enum([
+        "fully_parallel",
+        "fully_sequential",
+        "hybrid",
+      ]),
+      sections: z.array(
+        z.object({
+          section_id: z.string(),
+          title: z.string(),
+          description: z.string(),
+          assigned_agents: z.array(z.string()),
+          checklist: z.array(z.string()),
+          dependencies: z.array(z.string()),
+          priority: z.enum(["critical", "high", "medium", "low"]),
+          data_requirements: z.array(z.string()),
+          success_criteria: z.array(z.string()),
+        })
+      ),
+      risk_assessment: z.object({
+        data_availability_risk: z.enum(["low", "medium", "high"]),
+        complexity_risk: z.enum(["low", "medium", "high"]),
+        timeline_risk: z.enum(["low", "medium", "high"]),
+        mitigation_strategy: z.string(),
+      }),
+    });
 
-  const structuredModel = model.withStructuredOutput(schema);
+    console.log({triager: enhancedPrompt.triageResult})
 
-  const result = await structuredModel.invoke(`
+    const structuredModel = model.withStructuredOutput(schema);
+    const systemMessage = `
     You are a Lead Manager AI. Your task is to break down the enhanced analysis prompt into manageable sections and create an execution plan.
 
     CONTEXT:
-    - Sector: ${triageResult?.sector || "Unknown"}
-    - Function: ${triageResult?.function || "Unknown"} 
+    - Sector: ${enhancedPrompt.triageResult?.sector || "Unknown"}
+    - Function: ${enhancedPrompt.triageResult?.function || "Unknown"} 
     - Framework: ${enhancedPrompt.recommended_framework}
     - Analysis Type: ${enhancedPrompt.analysis_type}
 
@@ -87,22 +87,41 @@ export const leadManagerAgent: AgentNode = async (state: AgentStateType) => {
     3. Create detailed checklists for each section
     4. Identify dependencies between sections
     5. Assess risks and create mitigation strategies
-    6. Estimate timelines and priorities
 
-    Return a comprehensive scope and execution plan.
-  `);
+    Return a comprehensive scope and execution plan WITHOUT time estimates.
+  `;
+    const result = await structuredModel.invoke(systemMessage);
+  //  const result = fakeLeadManagerResult;
 
-  return {
-    scope: result,
-    currentAgent: "lead_manager",
-    executionHistory: [
-      ...state.executionHistory,
-      {
-        agent: "lead_manager",
-        timestamp: new Date(),
-        status: "completed",
-        output: result,
-      },
-    ],
-  };
+  console.log(JSON.stringify(result, null, 2))
+
+    const data = {
+      scope: result,
+      currentAgent: "completed",
+      executionHistory: [
+        ...state.executionHistory,
+        {
+          agent: "lead_manager",
+          timestamp: new Date(),
+          status: "completed",
+          output: result,
+        },
+      ],
+    };
+
+    return data;
+  } catch (error: any) {
+    console.error("Error in prompt_enhancer agent:", { error });
+    return {
+      executionHistory: [
+        ...state.executionHistory,
+        {
+          agent: "prompt_enhancer",
+          timestamp: new Date(),
+          status: "error",
+          output: error.message,
+        },
+      ],
+    };
+  }
 };

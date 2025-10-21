@@ -1,18 +1,22 @@
 import { usedModel } from "@/lib/constants";
+import { getUserProfile } from "@/utils/user-profile";
+import { Calculator } from "@langchain/community/tools/calculator";
+import { SerpAPI } from "@langchain/community/tools/serpapi";
+import { SystemMessage } from "@langchain/core/messages";
+import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { z } from "zod";
-import { DATA_SOURCES_REPOSITORY } from "../data-resources/data-source-for-test";
 import { AgentNode, AgentStateType } from "../graph-state/graph-state";
 
-// --- TYPES ---
 interface DetectedCompany {
   name: string;
   official_url: string | null;
   confidence: number;
 }
 
-// --- AGENT PRINCIPAL ---
 export const dataSourceManagerAgent: AgentNode = async (state: AgentStateType) => {
-  const { userInput, triageResult, userProfile } = state;
+  const { userInput } = state;
+  const triageResult = state.enhancedPrompt.triageResult;
+  const userProfile = await getUserProfile();
 
   if (!triageResult) {
     return errorState(state, "Missing triage result");
@@ -21,33 +25,54 @@ export const dataSourceManagerAgent: AgentNode = async (state: AgentStateType) =
   try {
     const companies = await detectCompanies(userInput);
 
-    // filter ressorces
-    let sources = DATA_SOURCES_REPOSITORY.filter(
-      (src) =>
-        src.sector.includes(triageResult.sector) &&
-        src.function.includes(triageResult.function)
-    );
+    const tools = [new Calculator(), new SerpAPI()];
+    const AGENT_SYSTEM_TEMPLATE = `You are a data source manager. You need to Identify the names of any companies mentioned in the prompt and find their official urls.`;
+    const chat = usedModel;
 
-    // filter trusted sources
-    if (userProfile?.trusted_sources_only) {
-      sources = sources.filter((src) => src.trust_level === "high");
-    }
+    const agent = createReactAgent({
+      llm: chat,
+      tools,
+      messageModifier: new SystemMessage(AGENT_SYSTEM_TEMPLATE),
+    });
 
-    // add company urls
-    const companyUrls = companies
-      .filter((c) => c.official_url && c.confidence > 0.7)
-      .map((c) => c.official_url as string);
+    const agentResult = await agent.invoke({
+      messages: userInput,
+    });
 
-    const preferredSources = [...new Set([...sources.map((s) => s.url), ...companyUrls])];
+    console.log({agent, tools})
+    console.log({ dataSourceManagerResult:agentResult });
 
-    const result = {
-      preferred_sources: preferredSources,
-      detected_companies: companies,
-      trusted_sources_only: userProfile?.trusted_sources_only ?? false,
-    };
 
-    return successState(state, "data_source_manager", result);
+    // // filter ressorces
+    // let sources = DATA_SOURCES_REPOSITORY.filter(
+    //   (src) =>
+    //     src.sector.includes(triageResult.sector) &&
+    //     src.function.includes(triageResult.function)
+    // );
+
+    // // filter trusted sources
+    // if (userProfile?.trusted_sources_only) {
+    //   sources = sources.filter((src) => src.trust_level === "high");
+    // }
+
+    // // add company urls
+    // const companyUrls = companies
+    //   .filter((c) => c.official_url && c.confidence > 0.7)
+    //   .map((c) => c.official_url as string);
+
+    // const preferredSources = [...new Set([...sources.map((s) => s.url), ...companyUrls])];
+
+    // const result = {
+    //   preferred_sources: preferredSources,
+    //   detected_companies: companies,
+    //   trusted_sources_only: userProfile?.trusted_sources_only ?? false,
+    // };
+
+    // return successState(state, "data_source_manager", result);
+    return successState(state, "data_source_manager", agentResult);
   } catch (err: any) {
+
+    console.log({err})
     return errorState(state, err.message);
   }
 };
@@ -101,7 +126,7 @@ function successState(state: AgentStateType, agent: string, output: any) {
   return {
     ...state,
     dataSources: output,
-    currentAgent: agent,
+    currentAgent: "completed",
     executionHistory: [
       ...state.executionHistory,
       { agent, timestamp: new Date(), status: "completed", output },

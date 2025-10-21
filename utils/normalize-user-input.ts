@@ -1,4 +1,4 @@
-import { UserInput } from "@/lib/lang-graph/agents/02-prompt-enhancer";
+import { UserInput } from "@/lib/lang-graph/agents/tiager-prompt-enhancer";
 
 export function normalizeUserInput(input: UserInput): string {
   if (!input) return '';
