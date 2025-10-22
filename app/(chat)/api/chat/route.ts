@@ -23,7 +23,7 @@ import {
 import type { User } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import { AgentOrchestrator } from "@/lib/lang-graph/orchestrator/orchestrator";
-import type { ChatMessage } from "@/lib/types";
+import type { AgentTimelineStep, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import {
   convertToUIMessages,
@@ -174,7 +174,188 @@ export function getStreamContext() {
   return globalStreamContext;
 }
 
+const AGENT_TITLES: Record<string, string> = {
+  prompt_enhancer: "Prompt enhancement",
+  lead_manager: "Scope planning",
+  data_source_manager: "Source management",
+  data_connector: "Data connections",
+  data_searcher: "Search plan",
+  expert_input: "Expert escalation",
+  data_analyzer: "Analysis modelling",
+  data_presenter: "Presentation",
+  reviewer: "Quality review",
+};
+
+function formatTimelineDetails(value: unknown): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    return trimmed.length > 2000 ? `${trimmed.slice(0, 2000)}…` : trimmed;
+  }
+
+  if (typeof value === "object") {
+    try {
+      const serialized = JSON.stringify(value, null, 2);
+      return serialized.length > 2000
+        ? `${serialized.slice(0, 2000)}…`
+        : serialized;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
+}
+
+function summarizeTimelineStep(agent: string, finalState: any): string {
+  switch (agent) {
+    case "prompt_enhancer":
+      if (finalState.enhancedPrompt?.enhanced_prompt) {
+        return `Enhanced prompt prepared using ${finalState.enhancedPrompt.recommended_framework}.`;
+      }
+      return "Prompt enhancement completed.";
+    case "lead_manager":
+      if (finalState.scope?.total_sections) {
+        const total = finalState.scope.total_sections as number;
+        return `Execution scope organised into ${total} section${total === 1 ? "" : "s"}.`;
+      }
+      return "Scope planning completed.";
+    case "data_source_manager": {
+      const recommended =
+        finalState.dataSources?.data_source_manager?.recommended_sources
+          ?.length ?? 0;
+      if (recommended) {
+        return `Selected ${recommended} preferred data source${recommended === 1 ? "" : "s"}.`;
+      }
+      return "Source curation finished.";
+    }
+    case "data_connector": {
+      const available = finalState.dataConnections?.connections?.length ?? 0;
+      if (available) {
+        return `Prepared ${available} connection${available === 1 ? "" : "s"} for data ingestion.`;
+      }
+      return "Data connection planning completed.";
+    }
+    case "data_searcher": {
+      const totalTasks = finalState.searchResults?.tasks?.length ?? 0;
+      const snowflakeHits =
+        finalState.searchResults?.snowflake?.results?.filter((result: any) =>
+          Array.isArray(result.rows) ? result.rows.length > 0 : false
+        ).length ?? 0;
+      if (totalTasks) {
+        return snowflakeHits
+          ? `Compiled ${totalTasks} search task${totalTasks === 1 ? "" : "s"} with ${snowflakeHits} Snowflake result${snowflakeHits === 1 ? "" : "s"}.`
+          : `Compiled ${totalTasks} search task${totalTasks === 1 ? "" : "s"}.`;
+      }
+      return "Search plan generated.";
+    }
+    case "expert_input": {
+      const gaps = finalState.dataGaps?.gaps?.length ?? 0;
+      if (gaps) {
+        return `Flagged ${gaps} data gap${gaps === 1 ? "" : "s"} for expert review.`;
+      }
+      return "No expert escalation required.";
+    }
+    case "data_analyzer": {
+      const components = finalState.analysisResults?.components?.length ?? 0;
+      if (components) {
+        return `Outlined ${components} analysis component${components === 1 ? "" : "s"}.`;
+      }
+      return "Analysis plan assembled.";
+    }
+    case "data_presenter": {
+      const sections = finalState.presentation?.sections?.length ?? 0;
+      if (sections) {
+        return `Presentation scaffold includes ${sections} section${sections === 1 ? "" : "s"}.`;
+      }
+      return "Presentation scaffolding completed.";
+    }
+    case "reviewer": {
+      const score = finalState.review?.quality_score;
+      if (typeof score === "number") {
+        return `Quality score: ${(score * 100).toFixed(0)}%.`;
+      }
+      return "Quality control check completed.";
+    }
+    default:
+      return `${agent.replace(/_/g, " ")} completed.`;
+  }
+}
+
+function buildAgentTimeline(state: any): AgentTimelineStep[] {
+  const history = Array.isArray(state?.executionHistory)
+    ? state.executionHistory
+    : [];
+
+  return history.map((item: any) => {
+    const agent = String(item.agent ?? "agent");
+    const status = (item.status ?? "completed") as AgentTimelineStep["status"];
+    const summary = summarizeTimelineStep(agent, state);
+    const details = formatTimelineDetails(item.output);
+    const timestamp = item.timestamp instanceof Date
+      ? item.timestamp.toISOString()
+      : typeof item.timestamp === "string"
+        ? item.timestamp
+        : undefined;
+
+    return {
+      agent,
+      title: AGENT_TITLES[agent] ?? agent.replace(/_/g, " "),
+      status,
+      summary,
+      details,
+      timestamp,
+    };
+  });
+}
+
+function mergeAgentState(currentState: any, update: any) {
+  if (!update || typeof update !== "object") {
+    return currentState;
+  }
+
+  const nextState = {
+    ...currentState,
+    ...update,
+  };
+
+  if (Array.isArray(update.executionHistory)) {
+    nextState.executionHistory = update.executionHistory;
+  }
+
+  return nextState;
+}
+
+function extractStateUpdate(chunk: any) {
+  if (!chunk) {
+    return null;
+  }
+
+  if (Array.isArray(chunk)) {
+    return chunk[1] ?? null;
+  }
+
+  if (typeof chunk === "object") {
+    if (chunk && "value" in chunk && typeof (chunk as any).value === "object") {
+      return (chunk as any).value;
+    }
+    return chunk;
+  }
+
+  return null;
+}
+
 export async function POST(request: Request) {
+  const rateLimitDisabled =
+    process.env.CHAT_DISABLE_RATE_LIMIT === "true" ||
+    process.env.NEXT_PUBLIC_CHAT_DISABLE_RATE_LIMIT === "true";
+
   let requestBody: PostRequestBody;
   try {
     const json = await request.json();
@@ -209,13 +390,15 @@ export async function POST(request: Request) {
 
     const userType: UserType = session.user.type;
 
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 24,
-    });
+    if (!rateLimitDisabled) {
+      const messageCount = await getMessageCountByUserId({
+        id: session.user.id,
+        differenceInHours: 24,
+      });
 
-    if (messageCount > entitlementsByUserType[userType].maxMessagesPerDay) {
-      return new ChatSDKError("rate_limit:chat").toResponse();
+      if (messageCount >= entitlementsByUserType[userType].maxMessagesPerDay) {
+        return new ChatSDKError("rate_limit:chat").toResponse();
+      }
     }
 
     const chat = await getChatById({ id });
@@ -237,16 +420,10 @@ export async function POST(request: Request) {
       });
     }
 
-    const orchestrator = new AgentOrchestrator();
-    const finalState = await orchestrator.execute(message, userProfile);
-
     const messagesFromDb = await getMessagesByChatId({ id });
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
 
-    const planningPrompt = buildPlanningPrompt({
-      finalState,
-      latestUserMessage: getTextFromMessage(message),
-    });
+    const orchestrator = new AgentOrchestrator();
 
     const { longitude, latitude, city, country } = geolocation(request);
 
@@ -276,8 +453,62 @@ export async function POST(request: Request) {
     let finalMergedUsage: AppUsage | undefined;
 
     const stream = createUIMessageStream({
-      execute: ({ writer: dataStream }) => {
-        const modelMessages = convertToModelMessages(uiMessages);
+      execute: async ({ writer: dataStream }) => {
+        const modelMessages = [...convertToModelMessages(uiMessages)];
+        let currentState: any = {
+          userInput: message,
+          userProfile,
+          executionHistory: [],
+        };
+        let lastTimelineSignature = "";
+
+        const emitTimeline = () => {
+          const timeline = buildAgentTimeline(currentState);
+          if (!timeline.length) {
+            return;
+          }
+          const signature = timeline
+            .map((step) => `${step.agent}:${step.status}`)
+            .join("|");
+          if (signature === lastTimelineSignature) {
+            return;
+          }
+          lastTimelineSignature = signature;
+          dataStream.write({ type: "data-agentTimeline", data: timeline });
+        };
+
+        try {
+          for await (const chunk of orchestrator.executeStream(
+            message,
+            userProfile
+          )) {
+            const update = extractStateUpdate(chunk);
+            if (update) {
+              currentState = mergeAgentState(currentState, update);
+            }
+            emitTimeline();
+          }
+        } catch (error) {
+          console.error("Agent pipeline stream failed", error);
+        }
+
+        if (!currentState.executionHistory?.length) {
+          try {
+            const completedState = await orchestrator.execute(
+              message,
+              userProfile
+            );
+            currentState = mergeAgentState(currentState, completedState);
+            emitTimeline();
+          } catch (error) {
+            console.error("Fallback agent execution failed", error);
+          }
+        }
+
+        const planningPrompt = buildPlanningPrompt({
+          finalState: currentState,
+          latestUserMessage: getTextFromMessage(message),
+        });
 
         if (planningPrompt) {
           modelMessages.push({
@@ -285,6 +516,8 @@ export async function POST(request: Request) {
             content: planningPrompt,
           });
         }
+
+        emitTimeline();
 
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),

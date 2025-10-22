@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useArtifactSelector } from "@/hooks/use-artifact";
+import { useAgentTimeline } from "@/hooks/use-agent-timeline";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import type { Vote } from "@/lib/db/schema";
@@ -28,6 +29,7 @@ import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
+import { AgentTimeline } from "./agent-timeline";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
@@ -64,6 +66,7 @@ export function Chat({
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
+  const agentTimeline = useAgentTimeline();
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
@@ -129,6 +132,16 @@ export function Chat({
     },
   });
 
+  useEffect(() => {
+    if (status === "submitted" || status === "ready" || status === "idle") {
+      setDataStream([]);
+    }
+  }, [status, setDataStream]);
+
+  const showAgentTimeline =
+    agentTimeline.length > 0 &&
+    (status === "submitted" || status === "streaming");
+
   const searchParams = useSearchParams();
   const query = searchParams.get("query");
 
@@ -169,6 +182,15 @@ export function Chat({
           isReadonly={isReadonly}
           selectedVisibilityType={initialVisibilityType}
         />
+
+        {showAgentTimeline && (
+          <div className="mx-auto w-full max-w-4xl px-2 pb-2 md:px-4">
+            <AgentTimeline
+              className="border-border/70 bg-background/80 shadow-lg backdrop-blur"
+              timeline={agentTimeline}
+            />
+          </div>
+        )}
 
         <Messages
           chatId={id}
