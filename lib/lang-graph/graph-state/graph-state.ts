@@ -30,6 +30,7 @@ export const AgentState = Annotation.Root({
 
   scope: Annotation<any | undefined>(),
   dataSources: Annotation<any | undefined>(),
+  dataConnections: Annotation<any | undefined>(),
   searchResults: Annotation<any | undefined>(),
   dataGaps: Annotation<any | undefined>(),
   analysisResults: Annotation<any | undefined>(),
@@ -67,6 +68,7 @@ export type AgentStateType = {
   enhancedPrompt?: any;
   scope?: any;
   dataSources?: any;
+  dataConnections?: any;
   searchResults?: any;
   dataGaps?: any;
   analysisResults?: any;
