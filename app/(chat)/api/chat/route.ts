@@ -25,9 +25,14 @@ import { ChatSDKError } from "@/lib/errors";
 import { AgentOrchestrator } from "@/lib/lang-graph/orchestrator/orchestrator";
 import type { ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
-import { convertToUIMessages, generateUUID } from "@/lib/utils";
+import {
+  convertToUIMessages,
+  generateUUID,
+  getTextFromMessage,
+} from "@/lib/utils";
 import { geolocation } from "@vercel/functions";
 import {
+  convertToModelMessages,
   createUIMessageStream,
   JsonToSseTransformStream,
   smoothStream,
@@ -65,6 +70,87 @@ const getTokenlensCatalog = cache(
   ["tokenlens-catalog"],
   { revalidate: 24 * 60 * 60 } // 24 hours
 );
+
+type PlanningPromptInput = {
+  finalState: any;
+  latestUserMessage: string;
+};
+
+function buildPlanningPrompt({
+  finalState,
+  latestUserMessage,
+}: PlanningPromptInput): string | null {
+  if (!finalState) {
+    return null;
+  }
+
+  const lines: string[] = [];
+  const trimmedQuestion = latestUserMessage.trim();
+
+  if (trimmedQuestion) {
+    lines.push(`User question: ${trimmedQuestion}`);
+  }
+
+  const enhanced = finalState.enhancedPrompt;
+  if (enhanced?.enhanced_prompt) {
+    lines.push(`Enhanced analysis brief: ${enhanced.enhanced_prompt}`);
+  }
+
+  if (enhanced?.recommended_framework) {
+    lines.push(
+      `Recommended framework: ${enhanced.recommended_framework} | Analysis type: ${enhanced.analysis_type ?? "N/A"}`
+    );
+  }
+
+  const sections = Array.isArray(finalState.scope?.sections)
+    ? finalState.scope.sections
+    : [];
+
+  if (sections.length > 0) {
+    const sectionLines = sections.map((section: any, index: number) => {
+      const checklist = Array.isArray(section.checklist)
+        ? section.checklist.slice(0, 2).join("; ")
+        : "";
+      return `${index + 1}. ${section.title} – ${section.description ?? ""}${
+        checklist ? ` (focus: ${checklist})` : ""
+      }`;
+    });
+
+    lines.push(`Planned sections:\n${sectionLines.join("\n")}`);
+  }
+
+  const recommendedSources = Array.isArray(
+    finalState.dataSources?.data_source_manager?.recommended_sources
+  )
+    ? finalState.dataSources.data_source_manager.recommended_sources
+    : [];
+
+  if (recommendedSources.length > 0) {
+    const sourceLines = recommendedSources.map(
+      (source: any) => `${source.name} (${source.trustLevel}, ${source.access})`
+    );
+
+    lines.push(`Primary sources: ${sourceLines.join(", ")}`);
+  }
+
+  const contextKeywords = Array.isArray(finalState.dataConnections?.context?.keywords)
+    ? finalState.dataConnections.context.keywords
+    : [];
+
+  if (contextKeywords.length > 0) {
+    lines.push(`Focus keywords: ${contextKeywords.join(", ")}`);
+  }
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  lines.push(
+    "Using the context above, produce the full research response with an executive summary, analytical sections, and explicit source references."
+  );
+
+  return lines.join("\n\n");
+}
 
 export function getStreamContext() {
   if (!globalStreamContext) {
@@ -155,6 +241,11 @@ export async function POST(request: Request) {
     const messagesFromDb = await getMessagesByChatId({ id });
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
 
+    const planningPrompt = buildPlanningPrompt({
+      finalState,
+      latestUserMessage: getTextFromMessage(message),
+    });
+
     const { longitude, latitude, city, country } = geolocation(request);
 
     const requestHints: RequestHints = {
@@ -184,18 +275,19 @@ export async function POST(request: Request) {
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
+        const modelMessages = convertToModelMessages(uiMessages);
+
+        if (planningPrompt) {
+          modelMessages.push({
+            role: "user",
+            content: planningPrompt,
+          });
+        }
+
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
-          messages: [
-            // ...convertToModelMessages(uiMessages),
-            {
-              // role: "assistant",
-              role: "user",
-              // content: finalState.enhancedPrompt.enhanced_prompt,
-              content: finalState.dataSources.data_source_manager,
-            },
-          ],
+          messages: modelMessages,
           stopWhen: stepCountIs(5),
           experimental_activeTools:
             selectedChatModel === "chat-model-reasoning"

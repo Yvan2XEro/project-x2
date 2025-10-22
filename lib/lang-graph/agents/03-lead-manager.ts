@@ -88,7 +88,7 @@ export const leadManagerAgent: AgentNode = async (state: AgentStateType) => {
     4. Identify dependencies between sections
     5. Assess risks and create mitigation strategies
 
-    Return a comprehensive scope and execution plan WITHOUT time estimates.
+    Return a comprehensive scope in the same language as the query and execution plan WITHOUT time estimates.
   `;
     const result = await structuredModel.invoke(systemMessage);
   //  const result = fakeLeadManagerResult;
