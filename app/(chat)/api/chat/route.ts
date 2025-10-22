@@ -149,6 +149,8 @@ function buildPlanningPrompt({
     "Using the context above, produce the full research response with an executive summary, analytical sections, and explicit source references."
   );
 
+  lines.push("Respond in the same language as the user question.");
+
   return lines.join("\n\n");
 }
 
