@@ -1,21 +1,36 @@
+import { fetchSnowflakeTables, getSnowflakeStatus, ensureSnowflakeConnection } from "@/lib/services/snowflake";
 import { normalizeUserInput } from "@/utils/normalize-user-input";
 import type { AgentNode, AgentStateType } from "../graph-state/graph-state";
 import type { UserInput } from "./tiager-prompt-enhancer";
 
+type AccessType = "free" | "paid";
+type TrustLevel = "verified" | "trusted";
 type ConnectionStatus = "ready" | "requires_credentials" | "not_applicable";
+
+type RepositorySource = {
+  id: string;
+  name: string;
+  url: string;
+  description: string;
+  sectors: string[];
+  functions: string[];
+  geographies?: string[];
+  trustLevel: TrustLevel;
+  access: AccessType;
+};
 
 type DatasetDescriptor = {
   title: string;
   description: string;
-  retrievalMethod: "api" | "download" | "report";
+  retrievalMethod: "api" | "download" | "report" | "data_share";
   url: string | null;
 };
 
 type DataConnection = {
   sourceId: string;
   name: string;
-  access: "free" | "paid";
-  trustLevel: "verified" | "trusted";
+  access: AccessType;
+  trustLevel: TrustLevel;
   status: ConnectionStatus;
   notes: string;
   datasets: DatasetDescriptor[];
@@ -31,6 +46,116 @@ type DataConnectionSummary = {
   };
   connections: DataConnection[];
 };
+
+const DATA_SOURCES: RepositorySource[] = [
+  {
+    id: "world-bank",
+    name: "World Bank Data",
+    url: "https://data.worldbank.org",
+    description: "Macroeconomic indicators across 200+ countries.",
+    sectors: ["all", "financial services", "infrastructure"],
+    functions: ["market analysis", "economic outlook", "risk assessment"],
+    geographies: ["global"],
+    trustLevel: "verified",
+    access: "free",
+  },
+  {
+    id: "oecd",
+    name: "OECD Statistics",
+    url: "https://stats.oecd.org",
+    description: "Socio-economic datasets for OECD members.",
+    sectors: ["all", "public sector", "financial services"],
+    functions: ["policy analysis", "market analysis"],
+    geographies: ["global", "oecd"],
+    trustLevel: "verified",
+    access: "free",
+  },
+  {
+    id: "imf",
+    name: "IMF Data",
+    url: "https://data.imf.org",
+    description: "International fiscal and monetary statistics.",
+    sectors: ["all", "financial services"],
+    functions: ["economic outlook", "risk assessment"],
+    trustLevel: "verified",
+    access: "free",
+  },
+  {
+    id: "cap-iq",
+    name: "S&P Capital IQ",
+    url: "https://www.capitaliq.com",
+    description: "Company fundamentals and market intelligence.",
+    sectors: ["financial services", "technology", "industrials"],
+    functions: ["investment research", "competitive analysis"],
+    trustLevel: "trusted",
+    access: "paid",
+  },
+  {
+    id: "pitchbook",
+    name: "PitchBook",
+    url: "https://pitchbook.com",
+    description: "Private market, VC, and PE intelligence.",
+    sectors: ["technology", "healthcare", "financial services"],
+    functions: ["investment research", "market analysis"],
+    trustLevel: "trusted",
+    access: "paid",
+  },
+  {
+    id: "statista",
+    name: "Statista",
+    url: "https://www.statista.com",
+    description: "Cross-industry statistics and market sizing.",
+    sectors: ["all", "consumer", "technology"],
+    functions: ["market analysis", "benchmarking", "strategy"],
+    geographies: ["global"],
+    trustLevel: "trusted",
+    access: "paid",
+  },
+  {
+    id: "snowflake-marketplace",
+    name: "Snowflake Marketplace",
+    url: "https://www.snowflake.com/en/marketplace/",
+    description:
+      "Share-ready third-party datasets delivered via Snowflake secure data sharing.",
+    sectors: ["financial services", "technology", "consumer", "healthcare", "energy"],
+    functions: ["market analysis", "benchmarking", "risk assessment", "forecasting"],
+    geographies: ["global"],
+    trustLevel: "trusted",
+    access: "paid",
+  },
+  {
+    id: "who",
+    name: "WHO Global Health Observatory",
+    url: "https://www.who.int/data/gho",
+    description: "Health outcomes and epidemiology datasets.",
+    sectors: ["healthcare", "pharmaceuticals"],
+    functions: ["market analysis", "risk assessment", "policy analysis"],
+    geographies: ["global"],
+    trustLevel: "verified",
+    access: "free",
+  },
+  {
+    id: "iea",
+    name: "International Energy Agency",
+    url: "https://www.iea.org/data-and-statistics",
+    description: "Energy production, demand, and transition metrics.",
+    sectors: ["energy", "utilities", "industrial"],
+    functions: ["market analysis", "sustainability", "risk assessment"],
+    trustLevel: "verified",
+    access: "paid",
+  },
+  {
+    id: "edgar",
+    name: "SEC EDGAR Filings",
+    url: "https://www.sec.gov/edgar.shtml",
+    description: "Official filings for U.S.-listed companies.",
+    sectors: ["all"],
+    functions: ["regulatory", "due diligence", "investment research"],
+    geographies: ["united states"],
+    trustLevel: "verified",
+    access: "free",
+  },
+];
 
 function buildKeywords(state: AgentStateType): string[] {
   const keywords = new Set<string>();
@@ -73,15 +198,11 @@ function buildKeywords(state: AgentStateType): string[] {
   return Array.from(keywords).slice(0, 12);
 }
 
-function describeDatasets(
-  source: {
-    name: string;
-    access: "free" | "paid";
-    trustLevel: "verified" | "trusted";
-    url: string;
-  },
-  context: { keywords: string[]; geography: string; timeframe?: string }
-): DatasetDescriptor[] {
+function describeDatasets(source: RepositorySource, context: {
+  keywords: string[];
+  geography: string;
+  timeframe?: string;
+}): DatasetDescriptor[] {
   const topics = context.keywords.slice(0, 3);
   const timeframe = context.timeframe ? ` (${context.timeframe})` : "";
 
@@ -89,11 +210,52 @@ function describeDatasets(
     topics.push(context.geography.toLowerCase(), "baseline trend");
   }
 
-  return topics.map((topic) => ({
-    title: `${source.name} – ${topic.replace(/\b\w/g, (c) => c.toUpperCase())}${timeframe}`,
-    description: `Extract ${topic} indicators filtered for ${context.geography}. Align output with SMART objectives defined previously.`,
-    retrievalMethod: source.access === "free" ? "api" : "report",
-    url: source.url,
+  return topics.map((topic) => {
+    const formattedTopic = topic.replace(/\b\w/g, (c) => c.toUpperCase());
+
+    if (source.id === "snowflake-marketplace") {
+      return {
+        title: `${source.name} – ${formattedTopic}${timeframe}`,
+        description: `Provision ${formattedTopic.toLowerCase()} indicators for ${context.geography} via Snowflake data share and align ingestion with SMART metrics.`,
+        retrievalMethod: "data_share",
+        url: source.url,
+      };
+    }
+
+    return {
+      title: `${source.name} – ${formattedTopic}${timeframe}`,
+      description: `Extract ${formattedTopic.toLowerCase()} indicators filtered for ${context.geography}. Align output with SMART objectives defined previously.`,
+      retrievalMethod: source.access === "free" ? "api" : "report",
+      url: source.url,
+    };
+  });
+}
+
+function buildConnectionNotes(source: RepositorySource, status: ConnectionStatus): string {
+  if (source.id === "snowflake-marketplace") {
+    return "Provision through Snowflake secure data share – coordinate account entitlements and warehouse configuration.";
+  }
+
+  if (status === "ready") {
+    return "API key or open download available – build automated pull in data pipelines.";
+  }
+
+  if (status === "requires_credentials") {
+    return "Requires enterprise credentials before extraction can begin.";
+  }
+
+  return "Review source prerequisites before proceeding.";
+}
+
+function mapSnowflakeTablesToDatasets(tables: Array<{ schema: string; name: string; comment: string }>): DatasetDescriptor[] {
+  return tables.map((table) => ({
+    title: `Snowflake Secure Share – ${table.schema}.${table.name}`,
+    description:
+      table.comment && table.comment.length > 0
+        ? table.comment
+        : "Dataset available via Snowflake Marketplace secure share.",
+    retrievalMethod: "data_share",
+    url: "https://www.snowflake.com/en/marketplace/",
   }));
 }
 
@@ -123,36 +285,79 @@ export const dataConnectorAgent: AgentNode = async (state) => {
     keywords: buildKeywords(state),
   };
 
-  const sources = [
-    ...(Array.isArray(manager.recommended_sources)
-      ? manager.recommended_sources
-      : []),
-    ...(Array.isArray(manager.supplementary_sources)
-      ? manager.supplementary_sources
-      : []),
-  ].slice(0, 6);
+  const selectedSources = manager.recommended_sources ?? [];
+  const supplementarySources = manager.supplementary_sources ?? [];
 
-  const connections: DataConnection[] = sources.map((source) => {
-    const status: ConnectionStatus =
-      source.access === "free"
-        ? "ready"
-        : "requires_credentials";
+  const combined = [...selectedSources, ...supplementarySources]
+    .slice(0, 6)
+    .map((source: any) => source.id ?? source.name);
 
-    const notes =
-      status === "ready"
-        ? "API key or open download available – build automated pull in data pipelines."
-        : "Requires enterprise credentials before extraction can begin.";
+  const repositoryMap = new Map(DATA_SOURCES.map((source) => [source.id, source]));
 
-    return {
-      sourceId: source.id,
-      name: source.name,
-      access: source.access,
-      trustLevel: source.trustLevel,
-      status,
-      notes,
-      datasets: describeDatasets(source, context),
+  const connections: DataConnection[] = combined
+    .map((sourceId) => repositoryMap.get(sourceId))
+    .filter((source): source is RepositorySource => Boolean(source))
+    .map((source) => {
+      const status: ConnectionStatus =
+        source.access === "free" ? "ready" : "requires_credentials";
+
+      return {
+        sourceId: source.id,
+        name: source.name,
+        access: source.access,
+        trustLevel: source.trustLevel,
+        status,
+        notes: buildConnectionNotes(source, status),
+        datasets: describeDatasets(source, context),
+      };
+    });
+
+  await ensureSnowflakeConnection();
+  const snowflakeTables = await fetchSnowflakeTables(context.keywords, 5);
+  const snowflakeStatus = getSnowflakeStatus();
+
+  const ensureSnowflakeConnectionEntry = () => {
+    const existing = connections.find((connection) => connection.sourceId === "snowflake-marketplace");
+
+    if (existing) {
+      return existing;
+    }
+
+    const repository = repositoryMap.get("snowflake-marketplace");
+
+    if (!repository) {
+      return null;
+    }
+
+    const entry: DataConnection = {
+      sourceId: repository.id,
+      name: repository.name,
+      access: repository.access,
+      trustLevel: repository.trustLevel,
+      status: "requires_credentials",
+      notes: buildConnectionNotes(repository, "requires_credentials"),
+      datasets: describeDatasets(repository, context),
     };
-  });
+
+    connections.push(entry);
+    return entry;
+  };
+
+  const snowflakeConnectionEntry = ensureSnowflakeConnectionEntry();
+
+  if (snowflakeConnectionEntry) {
+    if (snowflakeTables.length > 0) {
+      snowflakeConnectionEntry.status = "ready";
+      snowflakeConnectionEntry.datasets = mapSnowflakeTablesToDatasets(snowflakeTables);
+      snowflakeConnectionEntry.notes =
+        "Snowflake connection established – datasets available via secure data share.";
+    } else if (snowflakeStatus.status === "error") {
+      snowflakeConnectionEntry.notes = `Snowflake connection error: ${snowflakeStatus.message ?? "Unknown issue"}.`;
+    } else if (snowflakeStatus.status === "disabled") {
+      snowflakeConnectionEntry.notes =
+        "Snowflake environment variables not configured. Provide credentials to activate secure shares.";
+    }
+  }
 
   const summary: DataConnectionSummary = {
     context,
