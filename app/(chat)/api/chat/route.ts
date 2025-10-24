@@ -23,6 +23,7 @@ import {
 import type { User } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import { AgentOrchestrator } from "@/lib/lang-graph/orchestrator/orchestrator";
+import type { RenderedDeliverable } from "@/lib/lang-graph/types";
 import type { AgentTimelineStep, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import {
@@ -154,6 +155,120 @@ function buildPlanningPrompt({
   return lines.join("\n\n");
 }
 
+function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
+  const lines: string[] = [];
+
+  const headline = deliverable.executiveSummary.headline || "Livrable";
+  lines.push(`# ${headline}`);
+  lines.push(
+    `**Mode:** ${deliverable.mode === "exec" ? "Executive" : "Détaillé"} · **Locale:** ${deliverable.locale} · **Template:** ${deliverable.template}`
+  );
+
+  for (const paragraph of deliverable.executiveSummary.body) {
+    if (paragraph.trim().length > 0) {
+      lines.push(paragraph.trim());
+    }
+  }
+
+  if (deliverable.executiveSummary.highlights.length > 0) {
+    lines.push("### Points clés");
+    const highlightLines: string[] = [];
+    for (const highlight of deliverable.executiveSummary.highlights) {
+      highlightLines.push(`- ${highlight}`);
+    }
+    lines.push(highlightLines.join("\n"));
+  }
+
+  for (const [index, section] of deliverable.sections.entries()) {
+    lines.push(`## ${index + 1}. ${section.title}`);
+
+    if (section.summary.length > 0) {
+      const summaryBullets: string[] = [];
+      for (const point of section.summary) {
+        summaryBullets.push(`- ${point}`);
+      }
+      lines.push(summaryBullets.join("\n"));
+    }
+
+    if (section.dataHighlights.length > 0) {
+      lines.push("**Données clés :**");
+      const highlightBullets: string[] = [];
+      for (const item of section.dataHighlights) {
+        highlightBullets.push(`- ${item}`);
+      }
+      lines.push(highlightBullets.join("\n"));
+    }
+
+    if (section.visuals.length > 0) {
+      lines.push("**Visuels pré-rendus :**");
+      const visualBullets: string[] = [];
+      for (const visual of section.visuals) {
+        visualBullets.push(`- ${visual.type === "chart" ? "Graphique" : "Tableau"} · ${visual.title} (source : ${visual.source})`);
+      }
+      lines.push(visualBullets.join("\n"));
+    }
+
+    lines.push(`> ${section.narrative}`);
+  }
+
+  if (deliverable.appendices.length > 0) {
+    lines.push("### Annexes prévues");
+    const appendixBullets: string[] = [];
+    for (const appendix of deliverable.appendices) {
+      appendixBullets.push(`- ${appendix}`);
+    }
+    lines.push(appendixBullets.join("\n"));
+  }
+
+  if (deliverable.exports.length > 0) {
+    lines.push("### Exports planifiés");
+    const exportBullets: string[] = [];
+    for (const currentExport of deliverable.exports) {
+      exportBullets.push(`- ${currentExport.format.toUpperCase()} · ${currentExport.filename} (${currentExport.status})`);
+    }
+    lines.push(exportBullets.join("\n"));
+  }
+
+  if (deliverable.citations.bibliography.length > 0) {
+    lines.push("### Sources et citations");
+    const citationLines: string[] = [];
+    for (const citation of deliverable.citations.bibliography) {
+      citationLines.push(`- [${citation.id}] ${citation.title} — ${citation.publisher} (${citation.trustLevel}, accès ${citation.access})`);
+    }
+    lines.push(citationLines.join("\n"));
+  }
+
+  lines.push("### Accessibilité");
+  const accessibilityBullets: string[] = [];
+  for (const item of deliverable.accessibility.checklist) {
+    accessibilityBullets.push(`- ${item}`);
+  }
+  lines.push(accessibilityBullets.join("\n"));
+
+  lines.push(
+    `**Internationalisation :** fuseau ${deliverable.internationalization.timezone} · formatage ${deliverable.numberFormat} · dates ${deliverable.dateFormat}`
+  );
+
+  return lines.join("\n\n");
+}
+
+function buildPackagingMessage(deliverable: RenderedDeliverable): ChatMessage {
+  const markdown = renderDeliverableToMarkdown(deliverable);
+  return {
+    id: generateUUID(),
+    role: "assistant",
+    parts: [
+      {
+        type: "text",
+        text: markdown,
+      },
+    ],
+    metadata: {
+      createdAt: new Date().toISOString(),
+    },
+  };
+}
+
 export function getStreamContext() {
   if (!globalStreamContext) {
     try {
@@ -183,6 +298,7 @@ const AGENT_TITLES: Record<string, string> = {
   expert_input: "Expert escalation",
   data_analyzer: "Analysis modelling",
   data_presenter: "Presentation",
+  render_packager: "Rendering & packaging",
   reviewer: "Quality review",
 };
 
@@ -276,6 +392,14 @@ function summarizeTimelineStep(agent: string, finalState: any): string {
       }
       return "Presentation scaffolding completed.";
     }
+    case "render_packager": {
+      const mode = finalState.renderedDeliverable?.mode ?? "exec";
+      const exports = finalState.renderedDeliverable?.exports?.length ?? 0;
+      if (exports) {
+        return `Deliverable packaged in ${exports} export format${exports === 1 ? "" : "s"} (${mode} mode).`;
+      }
+      return `Deliverable packaging completed (${mode} mode).`;
+    }
     case "reviewer": {
       const score = finalState.review?.quality_score;
       if (typeof score === "number") {
@@ -332,20 +456,65 @@ function mergeAgentState(currentState: any, update: any) {
   return nextState;
 }
 
+function normaliseGraphValue<T>(value: T): T {
+  if (value instanceof Map) {
+    const entries = Array.from(value.entries()).map(([key, entryValue]) => [key, normaliseGraphValue(entryValue)]);
+    return Object.fromEntries(entries) as T;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normaliseGraphValue(item)) as T;
+  }
+
+  if (value && typeof value === "object") {
+    const next: Record<string, unknown> = {};
+    let mutated = false;
+
+    for (const [key, entryValue] of Object.entries(value)) {
+      const normalisedEntry = normaliseGraphValue(entryValue);
+      next[key] = normalisedEntry;
+      mutated ||= normalisedEntry !== entryValue;
+    }
+
+    if (mutated) {
+      return next as T;
+    }
+  }
+
+  return value;
+}
+
 function extractStateUpdate(chunk: any) {
   if (!chunk) {
     return null;
   }
 
+  if (chunk instanceof Map) {
+    return normaliseGraphValue(Object.fromEntries(chunk));
+  }
+
   if (Array.isArray(chunk)) {
-    return chunk[1] ?? null;
+    const [channel, payload] = chunk as [unknown, unknown];
+    if (channel !== "values") {
+      return null;
+    }
+
+    if (payload instanceof Map) {
+      return normaliseGraphValue(Object.fromEntries(payload));
+    }
+
+    return normaliseGraphValue(payload ?? null);
   }
 
   if (typeof chunk === "object") {
     if (chunk && "value" in chunk && typeof (chunk as any).value === "object") {
-      return (chunk as any).value;
+      const value = (chunk as any).value;
+      if (value instanceof Map) {
+        return normaliseGraphValue(Object.fromEntries(value));
+      }
+      return normaliseGraphValue(value);
     }
-    return chunk;
+    return normaliseGraphValue(chunk);
   }
 
   return null;
@@ -455,8 +624,9 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
         const modelMessages = [...convertToModelMessages(uiMessages)];
+        const userQuestion = getTextFromMessage(message);
         let currentState: any = {
-          userInput: message,
+          userInput: userQuestion,
           userProfile,
           executionHistory: [],
         };
@@ -479,7 +649,7 @@ export async function POST(request: Request) {
 
         try {
           for await (const chunk of orchestrator.executeStream(
-            message,
+            userQuestion,
             userProfile
           )) {
             const update = extractStateUpdate(chunk);
@@ -492,22 +662,54 @@ export async function POST(request: Request) {
           console.error("Agent pipeline stream failed", error);
         }
 
-        if (!currentState.executionHistory?.length) {
+        // if (!currentState.renderedDeliverable) {
+        //   try {
+        //     const completedState = await orchestrator.execute(
+        //       message,
+        //       userProfile
+        //     );
+        //     currentState = mergeAgentState(currentState, completedState);
+        //     emitTimeline();
+        //   } catch (error) {
+        //     console.error("Fallback agent execution failed", error);
+        //   }
+        // }
+
+        let deliverable = currentState.renderedDeliverable as RenderedDeliverable | undefined;
+        if (!deliverable) {
           try {
             const completedState = await orchestrator.execute(
-              message,
+              userQuestion,
               userProfile
             );
-            currentState = mergeAgentState(currentState, completedState);
+            const finalUpdate = extractStateUpdate(completedState);
+            if (finalUpdate) {
+              currentState = mergeAgentState(currentState, finalUpdate);
+            }
             emitTimeline();
+            deliverable = currentState.renderedDeliverable as RenderedDeliverable | undefined;
           } catch (error) {
             console.error("Fallback agent execution failed", error);
           }
         }
 
+        console.log("\n\n\n Route deliverable response");
+        console.log(JSON.stringify(deliverable, null, 2));
+        console.log("\n\n\n");
+
+        if (deliverable) {
+          emitTimeline();
+          const packagingMessage = buildPackagingMessage(deliverable);
+          dataStream.write({
+            type: "data-appendMessage",
+            data: JSON.stringify(packagingMessage),
+          });
+          return;
+        }
+
         const planningPrompt = buildPlanningPrompt({
           finalState: currentState,
-          latestUserMessage: getTextFromMessage(message),
+          latestUserMessage: userQuestion,
         });
 
         if (planningPrompt) {
@@ -552,6 +754,7 @@ export async function POST(request: Request) {
               const providers = await getTokenlensCatalog();
               const modelId =
                 myProvider.languageModel(selectedChatModel).modelId;
+              // const modelId = "claude-3-5-sonnet-20241022";
               if (!modelId) {
                 finalMergedUsage = usage;
                 dataStream.write({

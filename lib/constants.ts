@@ -1,5 +1,6 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 // import { ChatAnthropic } from "@langchain/anthropic";
+// import { ChatGroq } from "@langchain/groq";
 import { generateDummyPassword } from "./db/utils";
 
 export const isProductionEnvironment = process.env.NODE_ENV === "production";
@@ -21,7 +22,7 @@ export const usedModel = new ChatGoogleGenerativeAI({
   });
 
 // export const usedModel = new ChatGroq({
-//   model: "llama3-70b-8192",
+//   model: "groq-llama3-70b",
 //   temperature: 0.7,
 //   apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY,
 // });

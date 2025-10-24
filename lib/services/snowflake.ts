@@ -58,7 +58,37 @@ export async function ensureSnowflakeConnection(): Promise<
       role: process.env.SNOWFLAKE_ROLE,
     });
 
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      try {
+        snowflakeConnection.destroy((destroyError) => {
+          if (destroyError) {
+            console.warn("Snowflake connection destroy failed", destroyError);
+          }
+        });
+      } catch (destroyError) {
+        console.warn("Snowflake connection timed out and destroy threw", destroyError);
+      }
+
+      lastStatus = {
+        status: "error",
+        message: "Snowflake connection attempt timed out.",
+      };
+      connection = null;
+      resolve(null);
+    }, 2000);
+
     snowflakeConnection.connect((err) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+
       if (err) {
         lastStatus = {
           status: "error",

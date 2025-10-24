@@ -35,6 +35,7 @@ export const AgentState = Annotation.Root({
   dataGaps: Annotation<any | undefined>(),
   analysisResults: Annotation<any | undefined>(),
   presentation: Annotation<any | undefined>(),
+  renderedDeliverable: Annotation<any | undefined>(),
   review: Annotation<
     | {
         checklist_completion: number;
@@ -73,6 +74,7 @@ export type AgentStateType = {
   dataGaps?: any;
   analysisResults?: any;
   presentation?: any;
+  renderedDeliverable?: any;
   review?: any;
   currentAgent?: string;
   executionHistory: Array<any>;

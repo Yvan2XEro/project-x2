@@ -59,7 +59,7 @@ export function Chat({
   });
 
   const { mutate } = useSWRConfig();
-  const { setDataStream } = useDataStream();
+  const { dataStream, setDataStream } = useDataStream();
 
   const [input, setInput] = useState<string>("");
   const [usage, setUsage] = useState<AppUsage | undefined>(initialLastContext);
@@ -132,15 +132,16 @@ export function Chat({
     },
   });
 
+  const isGenerating = status === "submitted" || status === "streaming";
+
   useEffect(() => {
-    if (status === "submitted" || status === "ready" || status === "idle") {
+    if (status === "submitted") {
       setDataStream([]);
     }
   }, [status, setDataStream]);
 
   const showAgentTimeline =
-    agentTimeline.length > 0 &&
-    (status === "submitted" || status === "streaming");
+    agentTimeline.length > 0 && (status === "submitted" || status === "streaming");
 
   const searchParams = useSearchParams();
   const query = searchParams.get("query");
@@ -167,12 +168,76 @@ export function Chat({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
 
+  const processedMessageIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    for (const message of initialMessages) {
+      processedMessageIdsRef.current.add(message.id);
+    }
+  }, [initialMessages]);
+
   useAutoResume({
     autoResume,
     initialMessages,
     resumeStream,
     setMessages,
   });
+
+  useEffect(() => {
+    if (!Array.isArray(dataStream) || dataStream.length === 0) {
+      return;
+    }
+
+    const pendingMessages: ChatMessage[] = [];
+
+    for (const part of dataStream) {
+      if (part.type !== "data-appendMessage") {
+        continue;
+      }
+
+      try {
+        const message = JSON.parse(part.data) as ChatMessage;
+
+        if (!message || typeof message.id !== "string") {
+          continue;
+        }
+
+        if (processedMessageIdsRef.current.has(message.id)) {
+          continue;
+        }
+
+        processedMessageIdsRef.current.add(message.id);
+        pendingMessages.push(message);
+      } catch (error) {
+        console.warn("Failed to parse appended message", error);
+      }
+    }
+
+    if (pendingMessages.length === 0) {
+      return;
+    }
+
+    setMessages((previous) => {
+      if (pendingMessages.length === 0) {
+        return previous;
+      }
+
+      const existingIds = new Set(previous.map((message) => message.id));
+      const filtered = pendingMessages.filter((message) => {
+        if (existingIds.has(message.id)) {
+          return false;
+        }
+        existingIds.add(message.id);
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        return previous;
+      }
+
+      return [...previous, ...filtered];
+    });
+  }, [dataStream, setMessages]);
 
   return (
     <>

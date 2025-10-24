@@ -59,6 +59,28 @@ const DATA_SOURCES: RepositorySource[] = [
     trustLevel: "verified",
     access: "free",
   },
+   {
+    id: "knovva",
+    name: "Knovva Real Estate Data",
+    url: "https://www.knovva.com", 
+    description: "Proprietary database focusing on commercial and residential real estate prices and yields in emerging markets.",
+    sectors: ["real estate", "financial services"],
+    functions: ["market analysis", "investment research", "benchmarking"],
+    geographies: ["global", "africa", "latin america"],
+    trustLevel: "trusted",
+    access: "paid",
+  },
+  {
+    id: "snowflake-marketplace",
+    name: "Snowflake Marketplace",
+    url: "https://www.snowflake.com/en/marketplace/",
+    description: "Potential source for real estate and economic datasets via secure data sharing.",
+    sectors: ["all", "real estate", "financial services"],
+    functions: ["market analysis", "benchmarking", "risk assessment"],
+    geographies: ["global"],
+    trustLevel: "trusted",
+    access: "paid",
+  },
   {
     id: "oecd",
     name: "OECD Statistics",
@@ -363,6 +385,8 @@ export const dataConnectorAgent: AgentNode = async (state) => {
     context,
     connections,
   };
+
+  console.log("\n\n\n\nData connector agent: ", JSON.stringify(summary));
 
   return {
     dataConnections: summary,
