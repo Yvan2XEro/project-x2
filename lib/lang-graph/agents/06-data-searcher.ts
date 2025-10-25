@@ -9,13 +9,21 @@ import { generateText } from "ai";
 import { z } from "zod";
 import type { AgentNode } from "../graph-state/graph-state";
 import type {
+  DataConnection,
+  DatasetDescriptor,
   ProprietarySearchResult,
+  ScopeSection,
   SearchPlanSummary,
   SnowflakeSearchResult,
   SnowflakeSearchSummary,
   UserFileInsight,
   WebSearchResult,
 } from "../types";
+import {
+  isDataConnection,
+  isDatasetDescriptor,
+  isScopeSection,
+} from "../utils/type-guards";
 import type { UserInput } from "./tiager-prompt-enhancer";
 
 type SearchChannel = "web" | "proprietary" | "user_files";
@@ -270,10 +278,13 @@ async function summariseSerpResults({
 
 export const dataSearcherAgent: AgentNode = async (state) => {
   const history = state.executionHistory ?? [];
-  const connections = state.dataConnections?.connections ?? [];
+  const rawConnections = state.dataConnections?.connections;
+  const connections = Array.isArray(rawConnections)
+    ? rawConnections.filter(isDataConnection)
+    : [];
   const manager = state.dataSources?.data_source_manager;
-  const scopeSections = Array.isArray(state.scope?.sections)
-    ? state.scope.sections
+  const scopeSections: ScopeSection[] = Array.isArray(state.scope?.sections)
+    ? state.scope.sections.filter(isScopeSection)
     : [];
 
   const keywords = Array.isArray(state.dataConnections?.context?.keywords)
@@ -334,7 +345,7 @@ export const dataSearcherAgent: AgentNode = async (state) => {
         plannedTasks.push(`Proprietary: ${proprietarySource.name}`);
 
         const datasetDescriptor = Array.isArray(proprietarySource.datasets)
-          ? proprietarySource.datasets.at(0)
+          ? proprietarySource.datasets.filter(isDatasetDescriptor).at(0)
           : undefined;
 
         proprietaryContexts.push({
@@ -378,6 +389,7 @@ export const dataSearcherAgent: AgentNode = async (state) => {
       if (activeSnowflakeConnection && executedSnowflakeQueries < MAX_SNOWFLAKE_QUERIES) {
         const datasetHints = connections
           .flatMap((connection) => connection.datasets ?? [])
+          .filter(isDatasetDescriptor)
           .filter((dataset) => dataset.url && dataset.url.includes("snowflake"))
           .map((dataset) => `${dataset.title}: ${dataset.description}`)
           .slice(0, 3);
@@ -432,14 +444,12 @@ export const dataSearcherAgent: AgentNode = async (state) => {
       continue;
     }
 
-    for (const dataset of connection.datasets) {
+    for (const dataset of connection.datasets.filter(isDatasetDescriptor)) {
       if (dataset.retrievalMethod === "download" && dataset.url === null) {
         const matchedSection = scopeSections.find((section) =>
-          Array.isArray(section.data_requirements)
-            ? section.data_requirements.some((requirement) =>
-                requirement.toLowerCase().includes(dataset.title.toLowerCase())
-              )
-            : false
+          section.data_requirements.some((requirement) =>
+            requirement.toLowerCase().includes(dataset.title.toLowerCase())
+          )
         );
 
         userFileContexts.push({

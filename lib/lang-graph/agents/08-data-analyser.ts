@@ -6,11 +6,15 @@ import type {
   AnalysisComponent,
   AnalysisSummary,
   ProprietarySearchResult,
+  DataConnection,
+  ScopeSection,
   SearchPlanSummary,
   SnowflakeSearchResult,
+  SearchTask,
   UserFileInsight,
   WebSearchResult,
 } from "../types";
+import { isDataConnection, isScopeSection, isSearchTask } from "../utils/type-guards";
 
 const analysisSchema = z.object({
   preliminaryFindings: z.string(),
@@ -20,7 +24,7 @@ const analysisSchema = z.object({
 });
 
 type SectionContext = {
-  section: any;
+  section: ScopeSection;
   approachHint: string;
   inputs: string[];
   web: WebSearchResult[];
@@ -40,9 +44,9 @@ function stripJson(raw: string): string {
 }
 
 function buildSectionContext(args: {
-  section: any;
-  tasks: any[];
-  connections: any[];
+  section: ScopeSection;
+  tasks: SearchTask[];
+  connections: DataConnection[];
   searchResults: SearchPlanSummary | undefined;
 }): SectionContext {
   const { section, tasks, connections, searchResults } = args;
@@ -233,12 +237,17 @@ async function analyseSectionContext({
 
 export const dataAnalyzerAgent: AgentNode = async (state) => {
   const history = state.executionHistory ?? [];
-  const sections = Array.isArray(state.scope?.sections)
-    ? state.scope.sections
+  const sections: ScopeSection[] = Array.isArray(state.scope?.sections)
+    ? state.scope.sections.filter(isScopeSection)
     : [];
-  const connections = state.dataConnections?.connections ?? [];
+  const rawConnections = state.dataConnections?.connections;
+  const connections = Array.isArray(rawConnections)
+    ? rawConnections.filter(isDataConnection)
+    : [];
   const searchResults = (state.searchResults ?? null) as SearchPlanSummary | undefined;
-  const searchTasks = Array.isArray(searchResults?.tasks) ? searchResults.tasks : [];
+  const searchTasks: SearchTask[] = Array.isArray(searchResults?.tasks)
+    ? searchResults.tasks.filter(isSearchTask)
+    : [];
 
   const analysisModel = myProvider.languageModel("chat-model");
   const modelId = analysisModel.modelId ?? "chat-model";
@@ -247,7 +256,7 @@ export const dataAnalyzerAgent: AgentNode = async (state) => {
       ? (state.userProfile as { locale?: string }).locale ?? "fr-FR"
       : "fr-FR";
 
-  const sectionContexts = sections.map((section) =>
+  const sectionContexts: SectionContext[] = sections.map((section) =>
     buildSectionContext({
       section,
       tasks: searchTasks,

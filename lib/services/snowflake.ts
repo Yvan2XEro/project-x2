@@ -28,6 +28,15 @@ function hasRequiredEnvironmentVariables(): boolean {
   return REQUIRED_ENV_VARS.every((key) => Boolean(process.env[key]));
 }
 
+function getEnvVar(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing environment variable ${key}`);
+  }
+
+  return value;
+}
+
 export async function ensureSnowflakeConnection(): Promise<
   snowflake.Connection | null
 > {
@@ -47,15 +56,15 @@ export async function ensureSnowflakeConnection(): Promise<
     return initialization;
   }
 
-  initialization = new Promise((resolve) => {
+  initialization = new Promise<snowflake.Connection | null>((resolve) => {
     const snowflakeConnection = snowflake.createConnection({
-      account: process.env.SNOWFLAKE_ACCOUNT,
-      username: process.env.SNOWFLAKE_USERNAME,
-      password: process.env.SNOWFLAKE_PASSWORD,
-      database: process.env.SNOWFLAKE_DATABASE,
-      schema: process.env.SNOWFLAKE_SCHEMA,
-      warehouse: process.env.SNOWFLAKE_WAREHOUSE,
-      role: process.env.SNOWFLAKE_ROLE,
+      account: getEnvVar("SNOWFLAKE_ACCOUNT"),
+      username: getEnvVar("SNOWFLAKE_USERNAME"),
+      password: getEnvVar("SNOWFLAKE_PASSWORD"),
+      database: getEnvVar("SNOWFLAKE_DATABASE"),
+      schema: getEnvVar("SNOWFLAKE_SCHEMA"),
+      warehouse: getEnvVar("SNOWFLAKE_WAREHOUSE"),
+      role: process.env.SNOWFLAKE_ROLE ?? undefined,
     });
 
     let settled = false;
@@ -116,7 +125,7 @@ export function getSnowflakeStatus(): SnowflakeStatus {
 
 export async function executeSnowflakeQuery(
   sqlText: string,
-  binds: unknown[] = [],
+  binds: snowflake.Bind[] = [],
   options: { rowLimit?: number } = {}
 ): Promise<Array<Record<string, unknown>>> {
   const activeConnection = await ensureSnowflakeConnection();

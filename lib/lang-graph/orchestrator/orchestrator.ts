@@ -1,4 +1,4 @@
-import { END, StateGraph } from "@langchain/langgraph";
+import { END, StateGraph, type CompiledStateGraph } from "@langchain/langgraph";
 import { leadManagerAgent } from "../agents/03-lead-manager";
 import { dataSourceManagerAgent } from "../agents/04-data-source-manager";
 import { dataConnectorAgent } from "../agents/05-data-connector";
@@ -12,25 +12,24 @@ import { promptEnhancerAgent } from "../agents/tiager-prompt-enhancer";
 import { AgentState } from "../graph-state/graph-state";
 
 export class AgentOrchestrator {
-  private graph: any;
+  private graph: unknown = null;
 
   constructor() {
     this.buildGraph();
   }
 
   private buildGraph() {
-    const workflow = new StateGraph(AgentState);
-
-    workflow.addNode("prompt_enhancer", promptEnhancerAgent);
-    workflow.addNode("lead_manager", leadManagerAgent);
-    workflow.addNode("data_source_manager", dataSourceManagerAgent);
-    workflow.addNode("data_connector", dataConnectorAgent);
-    workflow.addNode("data_searcher", dataSearcherAgent);
-    workflow.addNode("expert_input", expertInputRequiredAgent);
-    workflow.addNode("data_analyzer", dataAnalyzerAgent);
-    workflow.addNode("data_presenter", dataPresenterAgent);
-    workflow.addNode("reviewer", reviewerAgent);
-    workflow.addNode("render_packager", renderPackagerAgent);
+    const workflow = new StateGraph(AgentState)
+      .addNode("prompt_enhancer", promptEnhancerAgent)
+      .addNode("lead_manager", leadManagerAgent)
+      .addNode("data_source_manager", dataSourceManagerAgent)
+      .addNode("data_connector", dataConnectorAgent)
+      .addNode("data_searcher", dataSearcherAgent)
+      .addNode("expert_input", expertInputRequiredAgent)
+      .addNode("data_analyzer", dataAnalyzerAgent)
+      .addNode("data_presenter", dataPresenterAgent)
+      .addNode("reviewer", reviewerAgent)
+      .addNode("render_packager", renderPackagerAgent);
 
     workflow.setEntryPoint("prompt_enhancer");
     workflow.addEdge("prompt_enhancer", "lead_manager");
@@ -64,6 +63,14 @@ export class AgentOrchestrator {
     this.graph = workflow.compile();
   }
 
+  private ensureGraph(): CompiledStateGraph<any, any, string, any, any, any, any> {
+    if (!this.graph) {
+      throw new Error("Agent workflow graph is not initialized");
+    }
+
+    return this.graph as CompiledStateGraph<any, any, string, any, any, any, any>;
+  }
+
   async execute(userInput: string, userProfile?: any): Promise<any> {
     const initialState = {
       userInput,
@@ -82,8 +89,9 @@ export class AgentOrchestrator {
       review: undefined,
     };
 
-    const config = { recursionLimit: 50 };
-    return await this.graph.invoke(initialState, config);
+    const config = { recursionLimit: 50 } as const;
+    const graph = this.ensureGraph();
+    return await graph.invoke(initialState, config);
   }
 
   async *executeStream(
@@ -107,9 +115,10 @@ export class AgentOrchestrator {
       review: undefined,
     };
 
-    const config = { recursionLimit: 50, streamMode: "values", };
+    const config = { recursionLimit: 50, streamMode: "values" as const };
+    const graph = this.ensureGraph();
 
-    for await (const step of await this.graph.stream(initialState, config)) {
+    for await (const step of await graph.stream(initialState, config)) {
       yield step;
     }
   }

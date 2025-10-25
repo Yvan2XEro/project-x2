@@ -1,9 +1,11 @@
 import type { AgentNode } from "../graph-state/graph-state";
+import type { DataConnection, SectionCoverage } from "../types";
+import { isDataConnection, isSectionCoverage } from "../utils/type-guards";
 
 export const reviewerAgent: AgentNode = async (state) => {
   const history = state.executionHistory ?? [];
-  const coverage = Array.isArray(state.searchResults?.coverage)
-    ? state.searchResults.coverage
+  const coverage: SectionCoverage[] = Array.isArray(state.searchResults?.coverage)
+    ? state.searchResults.coverage.filter(isSectionCoverage)
     : [];
   const dataGapsCount = Array.isArray(state.dataGaps?.gaps)
     ? state.dataGaps.gaps.length
@@ -11,8 +13,10 @@ export const reviewerAgent: AgentNode = async (state) => {
   const presentationSections = Array.isArray(state.presentation?.sections)
     ? state.presentation.sections.length
     : 0;
-  const connections = Array.isArray(state.dataConnections?.connections)
-    ? state.dataConnections.connections
+  const connections: DataConnection[] = Array.isArray(
+    state.dataConnections?.connections
+  )
+    ? state.dataConnections.connections.filter(isDataConnection)
     : [];
 
   const coveredSections = coverage.filter(

@@ -1,10 +1,19 @@
 import { chatModels } from "@/lib/ai/models";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
 const CHAT_ID_REGEX =
   /^http:\/\/localhost:3000\/chat\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+type AssistantMessage = {
+  element: Locator;
+  content: string;
+  reasoning: string | null;
+  toggleReasoningVisibility(): Promise<void>;
+  upvote(): Promise<void>;
+  downvote(): Promise<void>;
+};
 
 export class ChatPage {
   private readonly page: Page;
@@ -135,20 +144,24 @@ export class ChatPage {
     expect(await this.getSelectedVisibility()).toBe(chatVisibility);
   }
 
-  async getRecentAssistantMessage() {
+  async getRecentAssistantMessage(): Promise<AssistantMessage> {
     const messageElements = await this.page
       .getByTestId("message-assistant")
       .all();
     const lastMessageElement = messageElements.at(-1);
 
     if (!lastMessageElement) {
-      return null;
+      throw new Error("No assistant message found");
     }
 
     const content = await lastMessageElement
       .getByTestId("message-content")
       .innerText()
       .catch(() => null);
+
+    if (content === null) {
+      throw new Error("Assistant message content is unavailable");
+    }
 
     const reasoningElement = await lastMessageElement
       .getByTestId("message-reasoning")
