@@ -323,9 +323,11 @@ export const renderPackagerAgent: AgentNode = async (state) => {
     numberFormat: context.locale === "fr-FR" ? "1 234,56" : "1,234.56",
     dateFormat: context.locale.startsWith("fr") ? "dd/MM/yyyy" : "MM/dd/yyyy",
     executiveSummary: {
-      headline: "Synthèse exécutive",
+      // headline: "Synthèse exécutive",
+      headline: context.executiveSummary,
       body: [context.executiveSummary],
-      highlights: renderedSections.flatMap((section) => section.summary).slice(0, 4),
+      highlights: [""],
+      // highlights: renderedSections.flatMap((section) => section.summary).slice(0, 4),
     },
     sections: renderedSections,
     appendices: context.appendices,

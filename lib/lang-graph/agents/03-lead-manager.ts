@@ -58,9 +58,13 @@ export const leadManagerAgent: AgentNode = async (state: AgentStateType) => {
     You are a Lead Manager AI. Your task is to break down the enhanced analysis prompt into manageable sections and create an execution plan.
 
     CONTEXT:
-    - Sector: ${enhancedPrompt.triageResult?.sector || "Unknown"}
-    - Function: ${enhancedPrompt.triageResult?.function || "Unknown"} 
+    - Sector: ${enhancedPrompt.triageResult?.sector || enhancedPrompt?.sector || "Unknown"}
+    - Function: ${enhancedPrompt.triageResult?.function || enhancedPrompt?.function || "Unknown"} 
+    - Category: ${enhancedPrompt.triageResult?.category || enhancedPrompt?.category || "Unknown"}
+    - Confidence Score: ${enhancedPrompt.triageResult?.confidenceScore || enhancedPrompt?.confidenceScore || "Unknown"}
     - Framework: ${enhancedPrompt.recommended_framework}
+    - Geographic Scope: ${enhancedPrompt.geographic_reference || "Global"}
+    - Timeframe: ${enhancedPrompt.timeframe || "Not specified"}
     - Analysis Type: ${enhancedPrompt.analysis_type}
 
     ENHANCED PROMPT REQUIREMENTS:

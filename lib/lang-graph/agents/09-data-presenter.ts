@@ -131,7 +131,7 @@ export const dataPresenterAgent: AgentNode = async (state: AgentStateType) => {
         Fichiers utilisateur:
         ${formatUserFilesForPrompt(userFiles)}
 
-        Produit un résumé exécutif percutant (titre, 1-2 paragraphes, 3-4 bullet points) pour un rapport de conseil. Réponds en français et base-toi uniquement sur les éléments fournis.
+        Produit un résumé exécutif, explicite et percutant (titre, 1-2 paragraphes, 3-5 bullet points) pour un rapport de conseil et a titre informatif. dans la meme langue que la question de l'utilisateur et base-toi uniquement sur les elements fournis; seulement en absence de ceux-ci tu peux produit une repose basée sur tes propres connaissances en la matiere.
       `;
 
       const structuredSummaryModel = chatModel.withStructuredOutput(ExecutiveSummarySchema);
@@ -179,7 +179,7 @@ export const dataPresenterAgent: AgentNode = async (state: AgentStateType) => {
           Fichiers utilisateur: ${formatUserFilesForPrompt(sectionFiles)}
           Snowflake: ${formatSnowflakeForPrompt(sectionSnowflake)}
 
-          Fournis 2 à 3 messages clés puis un paragraphe narratif intégrant les preuves. Réponds en français.
+          Fournis 2 à 3 messages clés puis un paragraphe narratif intégrant les preuves. Réponds dans la meme langue que la question de l'utilisateur.
         `;
         
         const structuredKeyFindingsModel = chatModel.withStructuredOutput(SectionSummarySchema);

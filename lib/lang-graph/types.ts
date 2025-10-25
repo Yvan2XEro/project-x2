@@ -44,6 +44,8 @@ export type EnhancedPrompt = {
   triageResult: {
     sector: string;
     function: string;
+    category: string;
+    confidenceScore: number;
   };
   geographic_reference?: string;
   timeframe?: string;

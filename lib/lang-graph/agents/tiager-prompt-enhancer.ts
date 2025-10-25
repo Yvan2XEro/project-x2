@@ -97,6 +97,7 @@ export const promptEnhancerAgent: AgentNode = async (state) => {
     - **EXTRACT AND PRESERVE ALL GEOGRAPHIC REFERENCES EXACTLY AS WRITTEN** (e.g., "Europe", "Africa", "Asia", "France"). If a geographic reference is present, it *must* be included in 'geographic_reference'.
     - **EXTRACT AND PRESERVE ALL TIME REFERENCES EXACTLY AS WRITTEN** (e.g., "2026", "next five years", "2023-2024"). If a time reference is present, it *must* be included in 'timeframe'.
     - PRESERVE all industry/sector references (e.g., "renewable energy", "healthcare", "electric vehicle industry").
+    - PRESERVE all category references (e.g., "market analysis", "sales strategy", "risk assessment", "strategic planning").
     - PRESERVE all specific factors mentioned (e.g., "political factors", "economic factors", "opportunities", "threats", "new battery startup").
     - CHOOSE and APPLY the framework that BEST matches the content and *specific analytical goal* of the "User Query for Analysis". For identifying opportunities and threats in a specific industry for a new launch, SWOT Analysis and Porter's Five Forces (or their combination) are usually most appropriate.
 
@@ -105,16 +106,18 @@ export const promptEnhancerAgent: AgentNode = async (state) => {
 
       Steps to follow to enhance the prompt for the "User Query for Analysis":
       1. Find the most appropriate sector and function *explicitly mentioned or implied by the User Query*.
-      2. Identify the main analysis goal *as stated in the User Query*.
-      3. **CRITICALLY IDENTIFY AND EXTRACT ANY GEOGRAPHIC REFERENCE *EXPLICITLY MENTIONED* IN THE USER QUERY.**
-      4. **CRITICALLY IDENTIFY AND EXTRACT ANY TIMEFRAME *EXPLICITLY MENTIONED* IN THE USER QUERY.**
-      5. Identify any specific factors mentioned *in the User Query*.
-      6. Choose the single most relevant framework, or a combination if necessary, *that directly supports the User Query's analytical goal*.
-      7. Expand its components with specific analysis requirements *directly related to the User Query's industry and context*.
-      8. Apply SMART criteria (Specific, Measurable, Attainable, Relevant, Time-bound) tailored *precisely to the User Query's objectives and timeframe*.
-      9. Suggest an organized output structure for the analysis *that logically presents findings pertinent to the User Query*.
+      2. Find the most appropriate category *explicitly mentioned or implied by the User Query*.
+      3. Identify the main analysis goal *as stated in the User Query*.
+      4. **CRITICALLY IDENTIFY AND EXTRACT ANY GEOGRAPHIC REFERENCE *EXPLICITLY MENTIONED* IN THE USER QUERY.**
+      5. **CRITICALLY IDENTIFY AND EXTRACT ANY TIMEFRAME *EXPLICITLY MENTIONED* IN THE USER QUERY.**
+      6. Identify any specific factors mentioned *in the User Query*.
+      7. Choose the single most relevant framework, or a combination if necessary, *that directly supports the User Query's analytical goal*.
+      8. Expand its components with specific analysis requirements *directly related to the User Query's industry and context*.
+      9. Apply SMART criteria (Specific, Measurable, Attainable, Relevant, Time-bound) tailored *precisely to the User Query's objectives and timeframe*.
+      10. Suggest an organized output structure for the analysis *that logically presents findings pertinent to the User Query*.
+      11. Assign a confidence score *based on the quality and relevance of the analysis*.
 
-    Return your analysis in the same language as the query, ensuring ALL original specifics are preserved and highlighted. The 'enhanced_prompt' field should be a concise, actionable summary of the user's original request, incorporating the chosen framework and SMART criteria, directly reflecting the "User Query for Analysis" and containing *all preserved details*.
+    Return your analysis in the same language as the query, ensuring ALL original specifics are preserved and highlighted. The 'enhanced_prompt' field should be a concise, actionable summary of the user's original request, incorporating the chosen framework, the function, the sector, the timeframe, the geographic reference, the specific factors mentioned, the category, and the chosen framework's SMART criteria, directly reflecting the "User Query for Analysis" and containing *all preserved details*.
     `;
 
     if (!currentMessage) {
@@ -149,6 +152,16 @@ export const promptEnhancerAgent: AgentNode = async (state) => {
           .string()
           .describe(
             "The business function, e.g., Market Analysis, Sales Strategy, Risk Assessment, Strategic Planning."
+          ),
+        category: z
+          .string()
+          .describe(
+            "The category, e.g., Market Analysis, Sales Strategy, Risk Assessment, Strategic Planning."
+          ),
+        confidenceScore: z
+          .number()
+          .describe(
+            "The confidence score, e.g., 0.8. MUST be derived from the user query."
           ),
       }),
       geographic_reference: z
