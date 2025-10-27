@@ -1,4 +1,4 @@
-import { usedModel } from "@/lib/constants";
+import { usedModel } from "@/lib/ai/server-models";
 import { normalizeUserInput } from "@/utils/normalize-user-input";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { z } from "zod";

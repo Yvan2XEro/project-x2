@@ -1,4 +1,4 @@
-import { usedModel } from "@/lib/constants";
+import { usedModel } from "@/lib/ai/server-models";
 import { z } from "zod";
 import { AgentNode, AgentStateType } from "../graph-state/graph-state";
 import type {
