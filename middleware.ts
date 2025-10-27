@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
+import { guestRegex } from "./lib/constants";
+import { shouldUseSecureCookies } from "./lib/auth/cookies";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -20,7 +21,7 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({
     req: request,
     secret: process.env.AUTH_SECRET,
-    secureCookie: !isDevelopmentEnvironment,
+    secureCookie: shouldUseSecureCookies(request),
   });
 
   if (!token) {

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { generateId } from "ai";
 import { genSaltSync, hashSync } from "bcrypt-ts";
 
