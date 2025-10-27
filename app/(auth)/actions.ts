@@ -4,9 +4,21 @@ import { z } from "zod";
 
 import { createUser, getUser } from "@/lib/db/queries";
 
+import { User } from "@/lib/db/schema";
 import { signIn } from "./auth";
 
-const authFormSchema = z.object({
+const registerFormSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  first_name: z.string().min(2),
+  last_name: z.string().min(2),
+  linkedin: z.string().optional(),
+  company_name: z.string().min(2),
+  role: z.string().optional(),
+  interests: z.array(z.string()).optional(),
+});
+
+const loginFormSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
@@ -20,7 +32,7 @@ export const login = async (
   formData: FormData
 ): Promise<LoginActionState> => {
   try {
-    const validatedData = authFormSchema.parse({
+    const validatedData = loginFormSchema.parse({
       email: formData.get("email"),
       password: formData.get("password"),
     });
@@ -31,13 +43,13 @@ export const login = async (
       redirect: false,
     });
 
-    return { status: "success" };
+    return { status: "success"};
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { status: "invalid_data" };
+      throw new Error(JSON.stringify({ status: "invalid_data" }));
     }
 
-    return { status: "failed" };
+    throw new Error(JSON.stringify({ status: "failed" }));
   }
 };
 
@@ -55,18 +67,34 @@ export const register = async (
   _: RegisterActionState,
   formData: FormData
 ): Promise<RegisterActionState> => {
+  let user: User[] | null = null;
   try {
-    const validatedData = authFormSchema.parse({
+    const validatedData = registerFormSchema.parse({
       email: formData.get("email"),
       password: formData.get("password"),
+      first_name: formData.get("first_name"),
+      last_name: formData.get("last_name"),
+      linkedin: formData.get("linkedin") || undefined,
+      company_name: formData.get("company_name"),
+      role: formData.get("role") || undefined,
+      interests: formData.getAll("interests") as string[],
     });
 
-    const [user] = await getUser(validatedData.email);
+    user = await getUser(validatedData.email);
 
-    if (user) {
-      return { status: "user_exists" } as RegisterActionState;
+    if (user && user.length > 0) {
+      throw new Error(JSON.stringify({ status: "user_exists" }));
     }
-    await createUser(validatedData.email, validatedData.password);
+    await createUser({
+      email: validatedData.email,
+      password: validatedData.password,
+      company_name: validatedData.company_name,
+      first_name: validatedData.first_name,
+      last_name: validatedData.last_name,
+      interests: validatedData.interests || [],
+      role: validatedData.role || "",
+      linkedin: validatedData.linkedin || "",
+    });
     await signIn("credentials", {
       email: validatedData.email,
       password: validatedData.password,
@@ -76,9 +104,12 @@ export const register = async (
     return { status: "success" };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { status: "invalid_data" };
+      throw new Error(JSON.stringify({ status: "invalid_data" }));
+    }
+    if (user && user.length > 0) {
+      throw new Error(JSON.stringify({ status: "user_exists" }));
     }
 
-    return { status: "failed" };
+    throw new Error(JSON.stringify({ status: "failed" }));
   }
 };

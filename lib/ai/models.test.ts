@@ -1,6 +1,6 @@
+import { getResponseChunksByPrompt } from "@/tests/prompts/utils";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV2 } from "ai/test";
-import { getResponseChunksByPrompt } from "@/tests/prompts/utils";
 
 export const chatModel = new MockLanguageModelV2({
   doGenerate: async () => ({

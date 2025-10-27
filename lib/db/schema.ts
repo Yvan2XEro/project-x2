@@ -16,7 +16,13 @@ import type { AppUsage } from "../usage";
 export const user = pgTable("User", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   email: varchar("email", { length: 64 }).notNull(),
-  password: varchar("password", { length: 64 }),
+  password: varchar("password", { length: 64 }).notNull(),
+  first_name: varchar("first_name", { length: 64 }).notNull(),
+  last_name: varchar("last_name", { length: 64 }).notNull(),
+  linkedin: varchar("linkedin", { length: 255 }),
+  company_name: varchar("company_name", { length: 64 }).notNull(),
+  role: varchar("role", { length: 64 }),
+  interests:text("interests").array(),
 });
 
 export type User = InferSelectModel<typeof user>;

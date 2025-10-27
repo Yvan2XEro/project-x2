@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ArtifactKind } from "@/components/artifact";
+import type { VisibilityType } from "@/components/visibility-selector";
 import {
   and,
   asc,
@@ -14,8 +16,6 @@ import {
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import type { ArtifactKind } from "@/components/artifact";
-import type { VisibilityType } from "@/components/visibility-selector";
 import { ChatSDKError } from "../errors";
 import type { AppUsage } from "../usage";
 import { generateUUID } from "../utils";
@@ -25,8 +25,8 @@ import {
   type DBMessage,
   document,
   message,
-  type Suggestion,
   stream,
+  type Suggestion,
   suggestion,
   type User,
   user,
@@ -46,6 +46,7 @@ export async function getUser(email: string): Promise<User[]> {
   try {
     return await db.select().from(user).where(eq(user.email, email));
   } catch (_error) {
+    console.error("Database query error:", _error);
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get user by email"
@@ -53,11 +54,40 @@ export async function getUser(email: string): Promise<User[]> {
   }
 }
 
-export async function createUser(email: string, password: string) {
+type IUser = {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  linkedin?: string;
+  company_name: string;
+  role?: string;
+  interests?: string[];
+};
+export async function createUser({
+  email,
+  password,
+  company_name,
+  first_name,
+  last_name,
+  interests,
+  role,
+  linkedin,
+}: IUser) {
   const hashedPassword = generateHashedPassword(password);
 
   try {
-    return await db.insert(user).values({ email, password: hashedPassword });
+    const result = await db.insert(user).values({
+      email,
+      password: hashedPassword,
+      first_name,
+      last_name,
+      company_name,
+      role,
+      linkedin,
+      interests
+    });
+    return result;
   } catch (_error) {
     throw new ChatSDKError("bad_request:database", "Failed to create user");
   }
@@ -66,12 +96,30 @@ export async function createUser(email: string, password: string) {
 export async function createGuestUser() {
   const email = `guest-${Date.now()}`;
   const password = generateHashedPassword(generateUUID());
+  const company_name = "guest company";
+  const interests = [""];
+  const first_name = "guest";
+  const last_name = "";
+  const role = "";
+  const linkedin = "";
 
   try {
-    return await db.insert(user).values({ email, password }).returning({
-      id: user.id,
-      email: user.email,
-    });
+    return await db
+      .insert(user)
+      .values({
+        email,
+        password,
+        first_name,
+        last_name,
+        company_name,
+        role,
+        linkedin,
+        interests
+      })
+      .returning({
+        id: user.id,
+        email: user.email,
+      });
   } catch (_error) {
     throw new ChatSDKError(
       "bad_request:database",
@@ -192,6 +240,7 @@ export async function getChatsByUserId({
       hasMore,
     };
   } catch (_error) {
+    console.log({ _error })
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get chats by user id"
@@ -407,6 +456,7 @@ export async function getMessageById({ id }: { id: string }) {
   try {
     return await db.select().from(message).where(eq(message.id, id));
   } catch (_error) {
+    console.log({ _error });
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get message by id"

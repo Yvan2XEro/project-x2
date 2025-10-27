@@ -18,4 +18,45 @@ export const chatModels: ChatModel[] = [
     description:
       "Uses advanced chain-of-thought reasoning for complex problems",
   },
+  {
+    id: "gemini-2.0-flash-exp",
+    name: "Gemini 2.0 Flash",
+    description: "Fast and efficient multimodal model from Google",
+  },
+  {
+    id: "gemini-2.0-flash-thinking-exp-1219",
+    name: "Gemini 2.0 Flash Thinking",
+    description: "Gemini with extended thinking capabilities",
+  },
+  {
+    id: "claude-3-5-sonnet-20241022",
+    name: "Claude 3.5 Sonnet",
+    description: "Powerful model with extended thinking and analysis",
+  },
+  {
+    id: "claude-3-5-haiku-20241022",
+    name: "Claude 3.5 Haiku",
+    description: "Fast and efficient model for quick responses",
+  },
+  {
+    id: "command-a-03-2025",
+    name: "Cohere Command A",
+    description: "Fast and efficient model for quick responses",
+  },
+  {
+    id: "command-a-reasoning-08-2025",
+    name: "Cohere Command A Reasoning",
+    description:
+      "Uses advanced chain-of-thought reasoning for complex problems",
+  },
+ {
+    id: "groq-llama3-70b",
+    name: "Groq Llama 3.3 70B Versatile",
+    description: "Ultra-fast inference for Llama 3.3 70B Versatile via Groq",
+  },
+ {
+    id: "grok-3-reasoning",
+    name: "Grok 3 Reasoning",
+    description: "xAI's flagship Grok 3 with enhanced chain-of-thought for deep analysis",
+  },
 ];

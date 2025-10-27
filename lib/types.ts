@@ -30,6 +30,17 @@ export type ChatTools = {
   requestSuggestions: requestSuggestionsTool;
 };
 
+export type AgentTimelineStatus = "started" | "completed" | "error";
+
+export type AgentTimelineStep = {
+  agent: string;
+  title: string;
+  status: AgentTimelineStatus;
+  summary: string;
+  details?: string;
+  timestamp?: string;
+};
+
 export type CustomUIDataTypes = {
   textDelta: string;
   imageDelta: string;
@@ -43,6 +54,7 @@ export type CustomUIDataTypes = {
   clear: null;
   finish: null;
   usage: AppUsage;
+  agentTimeline: AgentTimelineStep[];
 };
 
 export type ChatMessage = UIMessage<

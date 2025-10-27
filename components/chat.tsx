@@ -1,11 +1,5 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import useSWR, { useSWRConfig } from "swr";
-import { unstable_serialize } from "swr/infinite";
 import { ChatHeader } from "@/components/chat-header";
 import {
   AlertDialog,
@@ -17,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAgentTimeline } from "@/hooks/use-agent-timeline";
 import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
@@ -25,6 +20,14 @@ import { ChatSDKError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
+import { getUserProfile } from "@/utils/user-profile";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import useSWR, { useSWRConfig } from "swr";
+import { unstable_serialize } from "swr/infinite";
+import { AgentTimeline } from "./agent-timeline";
 import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
@@ -56,13 +59,14 @@ export function Chat({
   });
 
   const { mutate } = useSWRConfig();
-  const { setDataStream } = useDataStream();
+  const { dataStream, setDataStream } = useDataStream();
 
   const [input, setInput] = useState<string>("");
   const [usage, setUsage] = useState<AppUsage | undefined>(initialLastContext);
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const currentModelIdRef = useRef(currentModelId);
+  const agentTimeline = useAgentTimeline();
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
@@ -81,7 +85,10 @@ export function Chat({
     messages: initialMessages,
     experimental_throttle: 100,
     generateId: generateUUID,
+
     transport: new DefaultChatTransport({
+      // api: "/api/chat",
+      // api: "/api/agents/structured_output",
       api: "/api/chat",
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest(request) {
@@ -89,6 +96,9 @@ export function Chat({
           body: {
             id: request.id,
             message: request.messages.at(-1),
+            messages: request.messages,
+            action: "execute-full",
+            userProfile: getUserProfile(),
             selectedChatModel: currentModelIdRef.current,
             selectedVisibilityType: visibilityType,
             ...request.body,
@@ -122,6 +132,17 @@ export function Chat({
     },
   });
 
+  const isGenerating = status === "submitted" || status === "streaming";
+
+  useEffect(() => {
+    if (status === "submitted") {
+      setDataStream([]);
+    }
+  }, [status, setDataStream]);
+
+  const showAgentTimeline =
+    agentTimeline.length > 0 && (status === "submitted" || status === "streaming");
+
   const searchParams = useSearchParams();
   const query = searchParams.get("query");
 
@@ -147,12 +168,76 @@ export function Chat({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
 
+  const processedMessageIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    for (const message of initialMessages) {
+      processedMessageIdsRef.current.add(message.id);
+    }
+  }, [initialMessages]);
+
   useAutoResume({
     autoResume,
     initialMessages,
     resumeStream,
     setMessages,
   });
+
+  useEffect(() => {
+    if (!Array.isArray(dataStream) || dataStream.length === 0) {
+      return;
+    }
+
+    const pendingMessages: ChatMessage[] = [];
+
+    for (const part of dataStream) {
+      if (part.type !== "data-appendMessage") {
+        continue;
+      }
+
+      try {
+        const message = JSON.parse(part.data) as ChatMessage;
+
+        if (!message || typeof message.id !== "string") {
+          continue;
+        }
+
+        if (processedMessageIdsRef.current.has(message.id)) {
+          continue;
+        }
+
+        processedMessageIdsRef.current.add(message.id);
+        pendingMessages.push(message);
+      } catch (error) {
+        console.warn("Failed to parse appended message", error);
+      }
+    }
+
+    if (pendingMessages.length === 0) {
+      return;
+    }
+
+    setMessages((previous) => {
+      if (pendingMessages.length === 0) {
+        return previous;
+      }
+
+      const existingIds = new Set(previous.map((message) => message.id));
+      const filtered = pendingMessages.filter((message) => {
+        if (existingIds.has(message.id)) {
+          return false;
+        }
+        existingIds.add(message.id);
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        return previous;
+      }
+
+      return [...previous, ...filtered];
+    });
+  }, [dataStream, setMessages]);
 
   return (
     <>
@@ -196,7 +281,14 @@ export function Chat({
           )}
         </div>
       </div>
-
+{showAgentTimeline && (
+          <div className="mx-auto w-full max-w-4xl px-2 pb-2 md:px-4">
+            <AgentTimeline
+              className="border-border/70 bg-background/80 shadow-lg backdrop-blur"
+              timeline={agentTimeline}
+            />
+          </div>
+        )}
       <Artifact
         attachments={attachments}
         chatId={id}

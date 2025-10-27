@@ -1,4 +1,11 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+
+type ArtifactAssistantMessage = {
+  element: Locator;
+  content: string;
+  reasoning: string | null;
+  toggleReasoningVisibility(): Promise<void>;
+};
 
 export class ArtifactPage {
   private readonly page: Page;
@@ -37,20 +44,24 @@ export class ArtifactPage {
     await this.artifact.getByTestId("send-button").click();
   }
 
-  async getRecentAssistantMessage() {
+  async getRecentAssistantMessage(): Promise<ArtifactAssistantMessage> {
     const messageElements = await this.artifact
       .getByTestId("message-assistant")
       .all();
     const lastMessageElement = messageElements.at(-1);
 
     if (!lastMessageElement) {
-      return null;
+      throw new Error("No assistant message found in artifact view");
     }
 
     const content = await lastMessageElement
       .getByTestId("message-content")
       .innerText()
       .catch(() => null);
+
+    if (content === null) {
+      throw new Error("Assistant message content is unavailable");
+    }
 
     const reasoningElement = await lastMessageElement
       .getByTestId("message-reasoning")
