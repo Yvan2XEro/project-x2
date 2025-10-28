@@ -46,6 +46,10 @@ export class ChatPage {
     await this.page.goto("/");
   }
 
+  async reload() {
+    await this.page.reload();
+  }
+
   getCurrentURL(): string {
     return this.page.url();
   }

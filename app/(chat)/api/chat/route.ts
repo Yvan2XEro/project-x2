@@ -592,6 +592,9 @@ export async function POST(request: Request) {
     }
 
     const messagesFromDb = await getMessagesByChatId({ id });
+    const persistedMessageIds = new Set<string>(
+      messagesFromDb.map((currentMessage) => currentMessage.id)
+    );
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
 
     const orchestrator = new AgentOrchestrator();
@@ -617,6 +620,7 @@ export async function POST(request: Request) {
         },
       ],
     });
+    persistedMessageIds.add(message.id);
 
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
@@ -796,16 +800,25 @@ export async function POST(request: Request) {
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
-        await saveMessages({
-          messages: messages.map((currentMessage) => ({
+        const messagesToPersist = messages
+          .filter((currentMessage) => !persistedMessageIds.has(currentMessage.id))
+          .map((currentMessage) => ({
             id: currentMessage.id,
             role: currentMessage.role,
             parts: currentMessage.parts,
             createdAt: new Date(),
             attachments: [],
             chatId: id,
-          })),
-        });
+          }));
+
+        if (messagesToPersist.length > 0) {
+          await saveMessages({
+            messages: messagesToPersist,
+          });
+          for (const persistedMessage of messagesToPersist) {
+            persistedMessageIds.add(persistedMessage.id);
+          }
+        }
 
         if (finalMergedUsage) {
           try {
