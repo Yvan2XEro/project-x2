@@ -1,6 +1,11 @@
+import type { ArtifactKind } from "@/components/artifact";
+import type {
+  DeliverableCitationAnchor,
+  DeliverableCitationEntry,
+  DeliverableExport,
+} from "@/lib/lang-graph/types";
 import type { InferUITool, UIMessage } from "ai";
 import { z } from "zod";
-import type { ArtifactKind } from "@/components/artifact";
 import type { createDocument } from "./ai/tools/create-document";
 import type { getWeather } from "./ai/tools/get-weather";
 import type { requestSuggestions } from "./ai/tools/request-suggestions";
@@ -55,6 +60,11 @@ export type CustomUIDataTypes = {
   finish: null;
   usage: AppUsage;
   agentTimeline: AgentTimelineStep[];
+  references: {
+    anchors: DeliverableCitationAnchor[];
+    bibliography: DeliverableCitationEntry[];
+    exports: DeliverableExport[];
+  };
 };
 
 export type ChatMessage = UIMessage<

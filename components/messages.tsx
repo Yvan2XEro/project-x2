@@ -1,7 +1,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { ArrowDownIcon } from "lucide-react";
-import { memo, useEffect } from "react";
+import { memo, useEffect, useMemo } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
@@ -20,6 +20,10 @@ type MessagesProps = {
   isReadonly: boolean;
   isArtifactVisible: boolean;
   selectedModelId: string;
+  highlightedMessageId: string | null;
+  onMessageHighlight: (messageId: string) => void;
+  onMessageClearHighlight: (messageId: string) => void;
+  referenceMessageIds: string[];
 };
 
 function PureMessages({
@@ -31,6 +35,10 @@ function PureMessages({
   regenerate,
   isReadonly,
   selectedModelId,
+  highlightedMessageId,
+  onMessageHighlight,
+  onMessageClearHighlight,
+  referenceMessageIds,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -43,6 +51,10 @@ function PureMessages({
   });
 
   useDataStream();
+
+  const referencedMessageIds = useMemo(() => {
+    return new Set(referenceMessageIds);
+  }, [referenceMessageIds]);
 
   useEffect(() => {
     if (status === "submitted") {
@@ -75,8 +87,12 @@ function PureMessages({
                 status === "streaming" && messages.length - 1 === index
               }
               isReadonly={isReadonly}
+              hasReferences={referencedMessageIds.has(message.id)}
+              isHighlighted={highlightedMessageId === message.id}
               key={message.id}
               message={message}
+              onClearHighlight={() => onMessageClearHighlight(message.id)}
+              onHighlight={() => onMessageHighlight(message.id)}
               regenerate={regenerate}
               requiresScrollPadding={
                 hasSentMessage && index === messages.length - 1
@@ -131,6 +147,12 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
     return false;
   }
   if (!equal(prevProps.messages, nextProps.messages)) {
+    return false;
+  }
+  if (prevProps.highlightedMessageId !== nextProps.highlightedMessageId) {
+    return false;
+  }
+  if (!equal(prevProps.referenceMessageIds, nextProps.referenceMessageIds)) {
     return false;
   }
   if (!equal(prevProps.votes, nextProps.votes)) {

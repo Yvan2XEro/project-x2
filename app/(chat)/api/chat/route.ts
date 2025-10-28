@@ -24,7 +24,11 @@ import type { User } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import { AgentOrchestrator } from "@/lib/lang-graph/orchestrator/orchestrator";
 import type { RenderedDeliverable } from "@/lib/lang-graph/types";
-import type { AgentTimelineStep, ChatMessage } from "@/lib/types";
+import type {
+  AgentTimelineStep,
+  ChatMessage,
+  CustomUIDataTypes,
+} from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import {
   convertToUIMessages,
@@ -40,6 +44,7 @@ import {
   stepCountIs,
   streamText,
 } from "ai";
+import type { DataUIPart } from "ai";
 import { unstable_cache as cache } from "next/cache";
 import { after } from "next/server";
 import {
@@ -222,24 +227,6 @@ function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
     lines.push(appendixBullets.join("\n"));
   }
 
-  if (deliverable.exports.length > 0) {
-    lines.push("### Planned exports");
-    const exportBullets: string[] = [];
-    for (const currentExport of deliverable.exports) {
-      exportBullets.push(`- ${currentExport.format.toUpperCase()} · ${currentExport.filename} (${currentExport.status})`);
-    }
-    lines.push(exportBullets.join("\n"));
-  }
-
-  if (deliverable.citations.bibliography.length > 0) {
-    lines.push("### Sources and citations");
-    const citationLines: string[] = [];
-    for (const citation of deliverable.citations.bibliography) {
-      citationLines.push(`- [${citation.id}] ${citation.title} — ${citation.publisher} (${citation.trustLevel}, access ${citation.access})`);
-    }
-    lines.push(citationLines.join("\n"));
-  }
-
   lines.push("### Accessibility");
   const accessibilityBullets: string[] = [];
   for (const item of deliverable.accessibility.checklist) {
@@ -256,15 +243,33 @@ function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
 
 function buildPackagingMessage(deliverable: RenderedDeliverable): ChatMessage {
   const markdown = renderDeliverableToMarkdown(deliverable);
+  const parts: ChatMessage["parts"] = [
+    {
+      type: "text",
+      text: markdown,
+    },
+  ];
+
+  const hasReferences =
+    deliverable.exports.length > 0 ||
+    deliverable.citations.bibliography.length > 0;
+
+  if (hasReferences) {
+    const referencesPart: DataUIPart<CustomUIDataTypes> = {
+      type: "data-references",
+      data: {
+        anchors: deliverable.citations.anchors,
+        bibliography: deliverable.citations.bibliography,
+        exports: deliverable.exports,
+      },
+    };
+    parts.push(referencesPart as ChatMessage["parts"][number]);
+  }
+
   return {
     id: generateUUID(),
     role: "assistant",
-    parts: [
-      {
-        type: "text",
-        text: markdown,
-      },
-    ],
+    parts,
     metadata: {
       createdAt: new Date().toISOString(),
     },

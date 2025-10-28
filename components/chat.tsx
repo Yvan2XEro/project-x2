@@ -15,8 +15,10 @@ import { useAgentTimeline } from "@/hooks/use-agent-timeline";
 import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
+import { useReferences } from "@/hooks/use-references";
 import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
+import { isTestEnvironment } from "@/lib/constants";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import type { AppUsage } from "@/lib/usage";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
@@ -24,7 +26,7 @@ import { getUserProfile } from "@/utils/user-profile";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { AgentTimeline } from "./agent-timeline";
@@ -32,6 +34,7 @@ import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
+import { ReferencesSidebar } from "./references-sidebar";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
@@ -134,6 +137,45 @@ export function Chat({
 
   const isGenerating = status === "submitted" || status === "streaming";
 
+  const {
+    references,
+    highlightedMessageId,
+    setHighlightedMessageId,
+  } = useReferences(messages);
+
+  const referenceMessageIds = useMemo(() => {
+    return references.map((entry) => entry.messageId);
+  }, [references]);
+
+  const handleMessageHighlight = useCallback(
+    (messageId: string) => {
+      highlightSourceRef.current = "message";
+      setHighlightedMessageId(messageId);
+    },
+    [setHighlightedMessageId],
+  );
+
+  const handleMessageClearHighlight = useCallback(
+    (messageId: string) => {
+      if (
+        highlightSourceRef.current === "message" &&
+        highlightedMessageId === messageId
+      ) {
+        highlightSourceRef.current = null;
+        setHighlightedMessageId(null);
+      }
+    },
+    [highlightedMessageId, setHighlightedMessageId],
+  );
+
+  const handleSidebarHighlightChange = useCallback(
+    (messageId: string | null) => {
+      highlightSourceRef.current = messageId ? "sidebar" : null;
+      setHighlightedMessageId(messageId);
+    },
+    [setHighlightedMessageId],
+  );
+
   useEffect(() => {
     if (status === "submitted") {
       setDataStream([]);
@@ -169,12 +211,35 @@ export function Chat({
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
 
   const processedMessageIdsRef = useRef<Set<string>>(new Set());
+  const highlightSourceRef = useRef<"message" | "sidebar" | null>(null);
 
   useEffect(() => {
     for (const message of initialMessages) {
       processedMessageIdsRef.current.add(message.id);
     }
   }, [initialMessages]);
+
+  useEffect(() => {
+    if (!isTestEnvironment || typeof window === "undefined") {
+      return;
+    }
+
+    window.__PROJECT_X_CHAT_TEST__ = {
+      appendMessage(message) {
+        processedMessageIdsRef.current.add(message.id);
+        setMessages((previous) => [...previous, message]);
+      },
+      setHighlight(messageId) {
+        highlightSourceRef.current =
+          typeof messageId === "string" ? "sidebar" : null;
+        setHighlightedMessageId(messageId);
+      },
+    };
+
+    return () => {
+      delete window.__PROJECT_X_CHAT_TEST__;
+    };
+  }, [setMessages, setHighlightedMessageId]);
 
   useAutoResume({
     autoResume,
@@ -241,54 +306,66 @@ export function Chat({
 
   return (
     <>
-      <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
-        <ChatHeader
-          chatId={id}
-          isReadonly={isReadonly}
-          selectedVisibilityType={initialVisibilityType}
-        />
+      <div className="flex h-dvh min-w-0 bg-background">
+        <div className="overscroll-behavior-contain flex min-w-0 flex-1 touch-pan-y flex-col">
+          <ChatHeader
+            chatId={id}
+            isReadonly={isReadonly}
+            selectedVisibilityType={initialVisibilityType}
+          />
 
-        <Messages
-          chatId={id}
-          isArtifactVisible={isArtifactVisible}
-          isReadonly={isReadonly}
-          messages={messages}
-          regenerate={regenerate}
-          selectedModelId={initialChatModel}
-          setMessages={setMessages}
-          status={status}
-          votes={votes}
-        />
+          <Messages
+            chatId={id}
+            highlightedMessageId={highlightedMessageId}
+            isArtifactVisible={isArtifactVisible}
+            isReadonly={isReadonly}
+            messages={messages}
+            onMessageClearHighlight={handleMessageClearHighlight}
+            onMessageHighlight={handleMessageHighlight}
+            referenceMessageIds={referenceMessageIds}
+            regenerate={regenerate}
+            selectedModelId={initialChatModel}
+            setMessages={setMessages}
+            status={status}
+            votes={votes}
+          />
 
-        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
-          {!isReadonly && (
-            <MultimodalInput
-              attachments={attachments}
-              chatId={id}
-              input={input}
-              messages={messages}
-              onModelChange={setCurrentModelId}
-              selectedModelId={currentModelId}
-              selectedVisibilityType={visibilityType}
-              sendMessage={sendMessage}
-              setAttachments={setAttachments}
-              setInput={setInput}
-              setMessages={setMessages}
-              status={status}
-              stop={stop}
-              usage={usage}
-            />
+          <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
+            {!isReadonly && (
+              <MultimodalInput
+                attachments={attachments}
+                chatId={id}
+                input={input}
+                messages={messages}
+                onModelChange={setCurrentModelId}
+                selectedModelId={currentModelId}
+                selectedVisibilityType={visibilityType}
+                sendMessage={sendMessage}
+                setAttachments={setAttachments}
+                setInput={setInput}
+                setMessages={setMessages}
+                status={status}
+                stop={stop}
+                usage={usage}
+              />
+            )}
+          </div>
+
+          {showAgentTimeline && (
+            <div className="mx-auto w-full max-w-4xl px-2 pb-2 md:px-4">
+              <AgentTimeline
+                className="border-border/70 bg-background/80 shadow-lg backdrop-blur"
+                timeline={agentTimeline}
+              />
+            </div>
           )}
         </div>
+        <ReferencesSidebar
+          entries={references}
+          highlightedMessageId={highlightedMessageId}
+          onHighlightChange={handleSidebarHighlightChange}
+        />
       </div>
-{showAgentTimeline && (
-          <div className="mx-auto w-full max-w-4xl px-2 pb-2 md:px-4">
-            <AgentTimeline
-              className="border-border/70 bg-background/80 shadow-lg backdrop-blur"
-              timeline={agentTimeline}
-            />
-          </div>
-        )}
       <Artifact
         attachments={attachments}
         chatId={id}
@@ -338,4 +415,13 @@ export function Chat({
       </AlertDialog>
     </>
   );
+}
+
+declare global {
+  interface Window {
+    __PROJECT_X_CHAT_TEST__?: {
+      appendMessage: (message: ChatMessage) => void;
+      setHighlight: (messageId: string | null) => void;
+    };
+  }
 }

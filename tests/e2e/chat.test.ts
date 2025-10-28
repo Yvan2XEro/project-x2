@@ -162,6 +162,91 @@ test.describe("Chat activity", () => {
     expect(assistantMessage.content).toContain("It's just blue duh!");
   });
 
+  test("References sidebar renders and syncs selection", async () => {
+    const messageId = "assistant-reference-message";
+    const timestamp = new Date().toISOString();
+
+    await chatPage.appendAssistantMessageWithReferences({
+      id: messageId,
+      role: "assistant",
+      metadata: { createdAt: timestamp },
+      parts: [
+        {
+          type: "text",
+          text: "Here is your analysis summary without reference blocks.",
+        },
+        {
+          type: "data-references",
+          data: {
+            anchors: [],
+            bibliography: [
+              {
+                id: "C1",
+                title: "Example Insight",
+                url: "https://example.com/source",
+                publisher: "Example Publisher",
+                access: "public",
+                trustLevel: "verified",
+                retrievedAt: timestamp,
+              },
+            ],
+            exports: [
+              {
+                format: "pdf",
+                filename: "analysis.pdf",
+                status: "ready",
+                includes: ["executive summary"],
+              },
+              {
+                format: "pptx",
+                filename: "analysis.pptx",
+                status: "queued",
+                includes: ["slides"],
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    await expect(chatPage.referencesSidebar).toBeVisible();
+
+    const assistantMessage = await chatPage.getRecentAssistantMessage();
+    expect(assistantMessage.content).toBe(
+      "Here is your analysis summary without reference blocks."
+    );
+    expect(assistantMessage.content).not.toContain("Sources");
+
+    await chatPage.expectReferenceGroupNotHighlighted(messageId);
+
+    await chatPage.hoverAssistantMessage(messageId);
+    await chatPage.expectReferenceGroupHighlighted(messageId);
+    await chatPage.expectMessageHighlighted(messageId);
+
+    await chatPage.multimodalInput.hover();
+    await chatPage.expectReferenceGroupNotHighlighted(messageId);
+    await chatPage.expectMessageNotHighlighted(messageId);
+
+    await chatPage.selectReferenceGroup(messageId);
+    await chatPage.expectReferenceGroupHighlighted(messageId);
+    await chatPage.expectMessageHighlighted(messageId);
+
+    await chatPage.selectReferenceGroup(messageId);
+    await chatPage.expectReferenceGroupNotHighlighted(messageId);
+    await chatPage.expectMessageNotHighlighted(messageId);
+
+    await chatPage.selectReferenceCitation("C1");
+    await chatPage.expectReferenceGroupHighlighted(messageId);
+    await chatPage.expectMessageHighlighted(messageId);
+
+    await expect(
+      chatPage.getReferenceExportButton(messageId, "pdf")
+    ).toBeEnabled();
+    await expect(
+      chatPage.getReferenceExportButton(messageId, "pptx")
+    ).toBeDisabled();
+  });
+
   test("auto-scrolls to bottom after submitting new messages", async () => {
     test.fixme();
     await chatPage.sendMultipleMessages(5, (i) => `filling message #${i}`);

@@ -34,6 +34,10 @@ const PurePreviewMessage = ({
   regenerate,
   isReadonly,
   requiresScrollPadding,
+  hasReferences,
+  isHighlighted,
+  onHighlight,
+  onClearHighlight,
 }: {
   chatId: string;
   message: ChatMessage;
@@ -43,6 +47,10 @@ const PurePreviewMessage = ({
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
   requiresScrollPadding: boolean;
+  hasReferences: boolean;
+  isHighlighted: boolean;
+  onHighlight: () => void;
+  onClearHighlight: () => void;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
 
@@ -55,10 +63,21 @@ const PurePreviewMessage = ({
   return (
     <motion.div
       animate={{ opacity: 1 }}
-      className="group/message w-full"
+      className={cn(
+        "group/message w-full rounded-xl",
+        hasReferences && "transition-colors",
+        isHighlighted &&
+          "ring-2 ring-primary/60 ring-offset-2 ring-offset-background bg-primary/10",
+      )}
       data-role={message.role}
       data-testid={`message-${message.role}`}
+      data-highlighted={isHighlighted ? "true" : "false"}
+      data-has-references={hasReferences ? "true" : "false"}
+      data-message-id={message.id}
       initial={{ opacity: 0 }}
+      onClick={hasReferences ? onHighlight : undefined}
+      onMouseEnter={hasReferences ? onHighlight : undefined}
+      onMouseLeave={hasReferences ? onClearHighlight : undefined}
     >
       <div
         className={cn("flex w-full items-start gap-2 md:gap-3", {
@@ -292,10 +311,22 @@ export const PreviewMessage = memo(
     if (prevProps.isLoading !== nextProps.isLoading) {
       return false;
     }
+    if (prevProps.isHighlighted !== nextProps.isHighlighted) {
+      return false;
+    }
+    if (prevProps.hasReferences !== nextProps.hasReferences) {
+      return false;
+    }
     if (prevProps.message.id !== nextProps.message.id) {
       return false;
     }
     if (prevProps.requiresScrollPadding !== nextProps.requiresScrollPadding) {
+      return false;
+    }
+    if (prevProps.onHighlight !== nextProps.onHighlight) {
+      return false;
+    }
+    if (prevProps.onClearHighlight !== nextProps.onClearHighlight) {
       return false;
     }
     if (!equal(prevProps.message.parts, nextProps.message.parts)) {
