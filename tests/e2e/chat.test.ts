@@ -17,6 +17,17 @@ test.describe("Chat activity", () => {
     expect(assistantMessage.content).toContain("It's just green duh!");
   });
 
+  test("Assistant message persists after page reload", async () => {
+    await chatPage.sendUserMessage("Why is grass green?");
+    await chatPage.isGenerationComplete();
+
+    const assistantMessage = await chatPage.getRecentAssistantMessage();
+    await chatPage.reload();
+
+    const reloadedAssistantMessage = await chatPage.getRecentAssistantMessage();
+    expect(reloadedAssistantMessage.content).toBe(assistantMessage.content);
+  });
+
   test("Redirect to /chat/:id after submitting message", async () => {
     await chatPage.sendUserMessage("Why is grass green?");
     await chatPage.isGenerationComplete();
