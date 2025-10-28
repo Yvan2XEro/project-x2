@@ -3,6 +3,14 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
+declare global {
+  interface Window {
+    __PROJECT_X_CHAT_TEST__?: {
+      appendMessage: (message: unknown) => void;
+    };
+  }
+}
+
 const CHAT_ID_REGEX =
   /^http:\/\/localhost:3000\/chat\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -40,6 +48,10 @@ export class ChatPage {
 
   get scrollToBottomButton() {
     return this.page.getByTestId("scroll-to-bottom-button");
+  }
+
+  get referencesSidebar() {
+    return this.page.getByTestId("references-sidebar");
   }
 
   async createNewChat() {
@@ -272,6 +284,81 @@ export class ChatPage {
       await this.sendUserMessage(makeMessage(i));
       await this.isGenerationComplete();
     }
+  }
+
+  private getAssistantMessageLocator(messageId: string) {
+    return this.page.locator(
+      `[data-testid="message-assistant"][data-message-id="${messageId}"]`,
+    );
+  }
+
+  private getReferenceGroupLocator(messageId: string) {
+    return this.page.getByTestId(`references-group-${messageId}`);
+  }
+
+  async appendAssistantMessageWithReferences(message: unknown) {
+    await this.page.waitForFunction(() => {
+      return typeof window !== "undefined" && window.__PROJECT_X_CHAT_TEST__;
+    });
+
+    await this.page.evaluate((payload) => {
+      window.__PROJECT_X_CHAT_TEST__?.appendMessage(payload as any);
+    }, message);
+  }
+
+  async selectReferenceGroup(messageId: string) {
+    await this.page
+      .getByTestId(`references-group-button-${messageId}`)
+      .click();
+  }
+
+  async selectReferenceCitation(citationId: string) {
+    const [popup] = await Promise.all([
+      this.page.waitForEvent("popup").catch(() => null),
+      this.page.getByTestId(`reference-citation-${citationId}`).click(),
+    ]);
+
+    if (popup) {
+      await popup.close();
+    }
+  }
+
+  getReferenceExportButton(messageId: string, format: string) {
+    return this.page.getByTestId(
+      `reference-export-${messageId}-${format}`,
+    );
+  }
+
+  async expectMessageHighlighted(messageId: string) {
+    await expect(this.getAssistantMessageLocator(messageId)).toHaveAttribute(
+      "data-highlighted",
+      "true",
+    );
+  }
+
+  async expectMessageNotHighlighted(messageId: string) {
+    await expect(this.getAssistantMessageLocator(messageId)).toHaveAttribute(
+      "data-highlighted",
+      "false",
+    );
+  }
+
+  async expectReferenceGroupHighlighted(messageId: string) {
+    await expect(this.getReferenceGroupLocator(messageId)).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+  }
+
+  async expectReferenceGroupNotHighlighted(messageId: string) {
+    await expect(this.getReferenceGroupLocator(messageId)).toHaveAttribute(
+      "data-active",
+      "false",
+    );
+  }
+
+  async hoverAssistantMessage(messageId: string) {
+    await this.getAssistantMessageLocator(messageId).hover();
   }
 
   async scrollToTop(): Promise<void> {
