@@ -45,7 +45,7 @@ const normalizeLocale = (profile: unknown): string => {
       return raw;
     }
   }
-  return "fr-FR";
+  return "en-US";
 };
 
 const normalizeTimezone = (profile: unknown): string => {
@@ -55,7 +55,7 @@ const normalizeTimezone = (profile: unknown): string => {
       return raw;
     }
   }
-  return "Europe/Paris";
+  return "UTC";
 };
 
 const createVisualFromAnalysis = (
@@ -145,7 +145,7 @@ const buildCitations = (
 
   for (const source of supplementarySources) {
     if (!uniqueSources.has(source.id)) {
-      uniqueSources.set(source.id, registerSource(source, `${source.description} (supplémentaire)`));
+      uniqueSources.set(source.id, registerSource(source, `${source.description} (supplemental)`));
     }
   }
 
@@ -180,29 +180,29 @@ const buildCitations = (
 
 const buildExports = (sections: RenderedSection[], appendices: string[]): DeliverableExport[] => {
   const includeBaseline = sections.map((section) => section.title);
-  const appendixTitles = appendices.length > 0 ? appendices : ["Annexes"];
+  const appendixTitles = appendices.length > 0 ? appendices : ["Appendices"];
   return [
     {
       format: "pdf",
-      filename: "rapport-executif.pdf",
+      filename: "executive-report.pdf",
       status: "queued",
       includes: [...includeBaseline, ...appendixTitles],
     },
     {
       format: "pptx",
-      filename: "deck-synthese.pptx",
+      filename: "summary-deck.pptx",
       status: "queued",
       includes: includeBaseline.slice(0, 5),
     },
     {
       format: "docx",
-      filename: "rapport-detaille.docx",
+      filename: "detailed-report.docx",
       status: "queued",
       includes: [...includeBaseline, ...appendixTitles],
     },
     {
       format: "csv",
-      filename: "extractions-donnees.csv",
+      filename: "data-extracts.csv",
       status: "queued",
       includes: sections.flatMap((section) => section.dataHighlights),
     },
@@ -253,7 +253,7 @@ const buildPackagingContext = (state: Parameters<AgentNode>[0]): PackagingContex
 
   const executiveSummary = typeof presentation?.executiveSummary === "string"
     ? presentation.executiveSummary
-    : "Synthèse exécutive à compléter une fois les analyses finalisées.";
+    : "Executive summary to be completed once analyses are finalized.";
 
   const appendices = Array.isArray(presentation?.appendices)
     ? presentation.appendices
@@ -323,7 +323,7 @@ export const renderPackagerAgent: AgentNode = async (state) => {
     numberFormat: context.locale === "fr-FR" ? "1 234,56" : "1,234.56",
     dateFormat: context.locale.startsWith("fr") ? "dd/MM/yyyy" : "MM/dd/yyyy",
     executiveSummary: {
-      // headline: "Synthèse exécutive",
+      // headline: "Executive summary",
       headline: context.executiveSummary,
       body: [context.executiveSummary],
       highlights: [""],
@@ -336,9 +336,9 @@ export const renderPackagerAgent: AgentNode = async (state) => {
     accessibility: {
       status: "pending",
       checklist: [
-        "Vérifier les titres de graphiques et légendes pour les lecteurs d'écran.",
-        "Confirmer le contraste couleur/texte pour chaque visuel.",
-        "Associer chaque tableau à une alternative textuelle.",
+        "Validate chart titles and legends for screen-reader clarity.",
+        "Confirm color and text contrast for every visual.",
+        "Pair each table with an accessible text alternative.",
       ],
     },
     assets: {
@@ -361,7 +361,7 @@ export const renderPackagerAgent: AgentNode = async (state) => {
         agent: "render_packager",
         timestamp: new Date(),
         status: "completed",
-        output: `Assemblage du livrable (${renderedSections.length} section${renderedSections.length === 1 ? "" : "s"}) prêt pour export.`,
+        output: `Deliverable assembly (${renderedSections.length} section${renderedSections.length === 1 ? "" : "s"}) ready for export.`,
       },
     ],
   };

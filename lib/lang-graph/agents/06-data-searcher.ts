@@ -186,7 +186,7 @@ async function fetchSerpResults(context: WebResearchContext): Promise<SerpOrgani
     engine: "google",
     q: context.query,
     api_key: serpApiKey,
-    hl: "fr",
+    hl: "en",
   });
 
   if (context.geography) {
@@ -236,19 +236,19 @@ async function summariseSerpResults({
 }): Promise<{ summary: string; confidence: "high" | "medium" | "low" }> {
   if (!results.length) {
     return {
-      summary: `Aucune donnée publique confirmée pour ${context.sectionTitle}.`,
+      summary: `No public data confirmed for ${context.sectionTitle}.`,
       confidence: "low",
     };
   }
 
   const prompt = [
-    "Tu es un analyste de veille stratégique. Résume les informations suivantes issues d'une recherche Google.",
-    `Section concernée: ${context.sectionTitle}`,
-    context.sectionDescription ? `Contexte: ${context.sectionDescription}` : "",
-    `Requête: ${context.query}`,
-    "Résultats:",
+    "You are a competitive intelligence analyst. Summarize the following information from a Google search.",
+    `Relevant section: ${context.sectionTitle}`,
+    context.sectionDescription ? `Background: ${context.sectionDescription}` : "",
+    `Query: ${context.query}`,
+    "Results:",
     JSON.stringify(results, null, 2),
-    "Produis un JSON strict { \"summary\": string, \"confidence\": \"high\"|\"medium\"|\"low\" } en français. Mentionne les tendances majeures et reste factuel.",
+    "Produce strict JSON { \"summary\": string, \"confidence\": \"high\"|\"medium\"|\"low\" } in English. Highlight major trends and stay factual.",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -270,7 +270,9 @@ async function summariseSerpResults({
     };
   } catch (error) {
     return {
-      summary: `${context.sectionTitle}: synthèse automatisée à confirmer (basée sur ${results.length} résultats).`,
+      summary: `${context.sectionTitle}: automated summary pending confirmation (based on ${results.length} result${
+        results.length === 1 ? "" : "s"
+      }).`,
       confidence: "medium",
     };
   }
@@ -357,7 +359,7 @@ export const dataSearcherAgent: AgentNode = async (state) => {
           datasetName: datasetDescriptor?.title ?? proprietarySource.name,
           datasetSummary:
             datasetDescriptor?.description ??
-            (proprietarySource.notes ?? "Dataset décrit par l'équipe data."),
+            (proprietarySource.notes ?? "Dataset described by the data team."),
           accessStatus:
             proprietarySource.status === "requires_credentials"
               ? "requires_access"
@@ -454,7 +456,7 @@ export const dataSearcherAgent: AgentNode = async (state) => {
 
         userFileContexts.push({
           sectionId: matchedSection?.section_id ?? scopeSections.at(0)?.section_id ?? "general",
-          sectionTitle: matchedSection?.title ?? scopeSections.at(0)?.title ?? "Synthèse",
+          sectionTitle: matchedSection?.title ?? scopeSections.at(0)?.title ?? "Summary",
           filename: dataset.title,
           description: dataset.description,
         });
@@ -483,7 +485,7 @@ export const dataSearcherAgent: AgentNode = async (state) => {
           return {
             sectionId: context.sectionId,
             query: context.query,
-            summary: "Résultats web non récupérés : renseignez SERPAPI_KEY pour activer la recherche réelle.",
+            summary: "Web results not retrieved: set SERPAPI_KEY to enable live search.",
             snippets: [],
             sources: [],
             confidence: "low",
@@ -491,11 +493,11 @@ export const dataSearcherAgent: AgentNode = async (state) => {
         }
 
         const fallbackPrompt = [
-          "Tu es un analyste de recherche. Propose une courte synthèse basée sur ton expertise métier en attendant les résultats web.",
+          "You are a research analyst. Provide a short summary based on your domain expertise while web results are unavailable.",
           `Section: ${context.sectionTitle}`,
           context.sectionDescription ? `Description: ${context.sectionDescription}` : "",
-          `Requête: ${context.query}`,
-          "Réponds en français via JSON strict { \"summary\": string }.",
+          `Query: ${context.query}`,
+          "Respond in English using strict JSON { \"summary\": string }.",
         ]
           .filter(Boolean)
           .join("\n\n");
@@ -522,7 +524,7 @@ export const dataSearcherAgent: AgentNode = async (state) => {
           return {
             sectionId: context.sectionId,
             query: context.query,
-            summary: `Synthèse de ${context.sectionTitle} indisponible (échec de la recherche).`,
+            summary: `Summary for ${context.sectionTitle} unavailable (search failure).`,
             snippets: [],
             sources: [],
             confidence: "low",
@@ -548,16 +550,16 @@ export const dataSearcherAgent: AgentNode = async (state) => {
   const proprietaryResults = await Promise.all(
     proprietaryContexts.map(async (context): Promise<ProprietarySearchResult> => {
       const prompt = [
-        "Tu agis comme analyste data engineering. Résume la valeur d'un jeu de données propriétaire pour répondre à un besoin.",
+        "You are a data engineering analyst. Summarize the value of a proprietary dataset that can satisfy the requirement.",
         `Section: ${context.sectionTitle}`,
         `Requirement: ${context.requirement}`,
         `Source: ${context.sourceName}`,
-        `Jeu de données: ${context.datasetName} — ${context.datasetSummary}`,
-        "Retourne un JSON strict { \"summary\": string, \"nextSteps\": string } en français.",
+        `Dataset: ${context.datasetName} — ${context.datasetSummary}`,
+        "Return strict JSON { \"summary\": string, \"nextSteps\": string } in English.",
         context.accessStatus === "requires_access"
-          ? "Précise que l'accès nécessite une levée de droits dans nextSteps."
-          : "Indique comment exploiter immédiatement le dataset dans nextSteps.",
-        "Pas d'autre texte que le JSON.",
+          ? "Be explicit that access requires approval in nextSteps."
+          : "Explain how to use the dataset immediately in nextSteps.",
+        "Return only the JSON response.",
       ]
         .filter(Boolean)
         .join("\n");
@@ -578,7 +580,7 @@ export const dataSearcherAgent: AgentNode = async (state) => {
           dataset: context.datasetName,
           summary: parsed.summary,
           nextSteps:
-            parsed.nextSteps ?? "Coordonner avec l'équipe data pour confirmer les modalités d'accès.",
+            parsed.nextSteps ?? "Coordinate with the data team to confirm access conditions.",
           availability: context.accessStatus,
         };
       } catch (error) {
@@ -586,11 +588,11 @@ export const dataSearcherAgent: AgentNode = async (state) => {
           sectionId: context.sectionId,
           sourceId: context.sourceId,
           dataset: context.datasetName,
-          summary: `Évaluation préliminaire du dataset ${context.datasetName}.`,
+          summary: `Preliminary assessment of dataset ${context.datasetName}.`,
           nextSteps:
             context.accessStatus === "requires_access"
-              ? "Initier une demande d'accès auprès du propriétaire des données."
-              : "Planifier une ingestion pilote et valider la qualité des champs clés.",
+              ? "Initiate an access request with the data owner."
+              : "Plan a pilot ingestion and validate the quality of critical fields.",
           availability: context.accessStatus,
         };
       }
@@ -600,13 +602,13 @@ export const dataSearcherAgent: AgentNode = async (state) => {
   const userFileInsights = await Promise.all(
     userFileContexts.map(async (context): Promise<UserFileInsight> => {
       const prompt = [
-        "Analyse le contenu d'un fichier utilisateur supposé (ex: Excel, PDF, PPT).",
-        `Section ciblée: ${context.sectionTitle}`,
-        `Nom du fichier: ${context.filename}`,
-        `Description fournie: ${context.description}`,
-        "Retourne un JSON strict { \"summary\": string, \"keyMetrics\": string[] } en français.",
-        "Propose des indicateurs plausibles et mentionne les validations nécessaires.",
-        "Pas de texte hors JSON.",
+        "Analyze the likely contents of a user-provided file (e.g., Excel, PDF, PPT).",
+        `Target section: ${context.sectionTitle}`,
+        `Filename: ${context.filename}`,
+        `Provided description: ${context.description}`,
+        "Return strict JSON { \"summary\": string, \"keyMetrics\": string[] } in English.",
+        "Suggest plausible indicators and call out required validations.",
+        "No text outside of the JSON.",
       ]
         .filter(Boolean)
         .join("\n");
@@ -631,7 +633,7 @@ export const dataSearcherAgent: AgentNode = async (state) => {
         return {
           sectionId: context.sectionId,
           filename: context.filename,
-          summary: `Le fichier ${context.filename} nécessite une revue manuelle pour confirmer sa structure et sa fraîcheur.`,
+          summary: `File ${context.filename} requires manual review to confirm structure and freshness.`,
           keyMetrics: [],
         };
       }

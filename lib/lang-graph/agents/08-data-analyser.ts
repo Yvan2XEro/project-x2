@@ -80,7 +80,7 @@ function buildSectionContext(args: {
       )
     : [];
 
-  const approachHint = `Analyse ${section.title.toLowerCase()} en combinant données quantitatives et signaux qualitatifs.`;
+  const approachHint = `Analyze ${section.title.toLowerCase()} by combining quantitative data and qualitative signals.`;
 
   return {
     section,
@@ -95,13 +95,13 @@ function buildSectionContext(args: {
 
 function serializeRows(rows: SnowflakeSearchResult[]): string {
   if (rows.length === 0) {
-    return "Aucune extraction SQL confirmée.";
+    return "No confirmed SQL extraction.";
   }
 
   const previews = rows.slice(0, 2).map((result) => {
     const sample = (result.rows ?? []).slice(0, 3);
     const serialized = JSON.stringify(sample, null, 2).slice(0, 700);
-    return `SQL: ${result.sql.slice(0, 160)}${result.sql.length > 160 ? "…" : ""}\nExtrait: ${serialized}`;
+    return `SQL: ${result.sql.slice(0, 160)}${result.sql.length > 160 ? "…" : ""}\nExtract: ${serialized}`;
   });
 
   return previews.join("\n---\n");
@@ -112,7 +112,7 @@ function buildEvidenceBlock(context: SectionContext): string {
 
   if (context.web.length > 0) {
     lines.push(
-      "Insights web:\n" +
+      "Web insights:\n" +
         context.web
           .map((result, index) => {
             const snippet = result.snippets.at(0) ?? result.summary;
@@ -124,7 +124,7 @@ function buildEvidenceBlock(context: SectionContext): string {
 
   if (context.proprietary.length > 0) {
     lines.push(
-      "Datasets propriétaires:\n" +
+      "Proprietary datasets:\n" +
         context.proprietary
           .map((result) => `${result.dataset} (${result.availability}) — ${result.summary}`)
           .join("\n")
@@ -133,7 +133,7 @@ function buildEvidenceBlock(context: SectionContext): string {
 
   if (context.userFiles.length > 0) {
     lines.push(
-      "Fichiers utilisateur:\n" +
+      "User files:\n" +
         context.userFiles
           .map((result) => `${result.filename}: ${result.summary}`)
           .join("\n")
@@ -141,41 +141,37 @@ function buildEvidenceBlock(context: SectionContext): string {
   }
 
   if (context.snowflake.length > 0) {
-    lines.push(`Probes Snowflake:\n${serializeRows(context.snowflake)}`);
+    lines.push(`Snowflake probes:\n${serializeRows(context.snowflake)}`);
   }
 
-  return lines.join("\n\n") || "Aucun élément probant transmis.";
+  return lines.join("\n\n") || "No supporting evidence provided.";
 }
 
 async function analyseSectionContext({
   context,
   model,
-  locale,
 }: {
   context: SectionContext;
   model: LanguageModel;
-  locale: string;
 }): Promise<AnalysisComponent> {
   const dataRequirements = Array.isArray(context.section.data_requirements)
     ? context.section.data_requirements.join("; ")
     : "";
 
   const evidence = buildEvidenceBlock(context);
-  const languageInstruction = locale.startsWith("fr")
-    ? "Réponds en français professionnel."
-    : "Respond in professional English.";
+  const languageInstruction = "Respond in professional English.";
 
   const prompt = [
-    "Tu es un consultant senior chargé de synthétiser les analyses.",
+    "You are a senior consultant tasked with synthesizing the analyses.",
     languageInstruction,
     `Section: ${context.section.title}`,
     context.section.description ? `Description: ${context.section.description}` : "",
     context.approachHint,
-    dataRequirements ? `Exigences de données: ${dataRequirements}` : "",
-    "Données et signaux disponibles:",
+    dataRequirements ? `Data requirements: ${dataRequirements}` : "",
+    "Available data and signals:",
     evidence,
-    "Fournis une sortie JSON stricte avec les clés: preliminaryFindings (string), analysisSummary (string), quantInsights (string[]), visualizationIdeas (string[]).",
-    "Les conclusions doivent être argumentées et mentionner les indicateurs chiffrés lorsque disponibles. Si la donnée est hypothétique, précise-le explicitement.",
+    "Provide strict JSON output with the keys: preliminaryFindings (string), analysisSummary (string), quantInsights (string[]), visualizationIdeas (string[]).",
+    "Ground the conclusions in evidence and reference quantitative indicators when available. Flag any hypothetical data explicitly.",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -193,7 +189,7 @@ async function analyseSectionContext({
 
     const visualization = parsed.visualizationIdeas?.at(0)
       ? parsed.visualizationIdeas.join(" | ")
-      : "Graphique combinant séries temporelles et commentaires annotés.";
+      : "Graph combining time series and annotated commentary.";
 
     const idSet = new Set<string>(context.inputs);
     for (const result of context.web) {
@@ -226,10 +222,10 @@ async function analyseSectionContext({
       approach: context.approachHint,
       inputs: context.inputs,
       preliminaryFindings:
-        "Analyse qualitative à compléter. Données insuffisantes pour des conclusions vérifiées.",
-      analysisSummary: `Synthèse provisoire pour ${context.section.title}.`,
+        "Qualitative analysis pending. Data is insufficient for verified conclusions.",
+      analysisSummary: `Interim summary for ${context.section.title}.`,
       visualization:
-        "Tableau comparatif listant les indicateurs disponibles et les sources manquantes.",
+        "Comparative table listing available indicators and missing sources.",
       description: context.section.description ?? "",
     };
   }
@@ -251,11 +247,6 @@ export const dataAnalyzerAgent: AgentNode = async (state) => {
 
   const analysisModel = myProvider.languageModel("chat-model");
   const modelId = analysisModel.modelId ?? "chat-model";
-  const locale =
-    state.userProfile && typeof state.userProfile === "object" && "locale" in state.userProfile
-      ? (state.userProfile as { locale?: string }).locale ?? "fr-FR"
-      : "fr-FR";
-
   const sectionContexts: SectionContext[] = sections.map((section) =>
     buildSectionContext({
       section,
@@ -270,7 +261,6 @@ export const dataAnalyzerAgent: AgentNode = async (state) => {
       analyseSectionContext({
         context,
         model: analysisModel,
-        locale,
       })
     )
   );
@@ -278,8 +268,8 @@ export const dataAnalyzerAgent: AgentNode = async (state) => {
   const summary: AnalysisSummary = {
     components,
     notes: [
-      `Analyse générée avec le modèle ${modelId}.`,
-      "Tracer les hypothèses retenues et valider les métriques clés auprès des sources propriétaires.",
+      `Analysis generated with model ${modelId}.`,
+      "Track documented assumptions and validate key metrics against proprietary sources.",
     ],
   };
 
@@ -293,7 +283,7 @@ export const dataAnalyzerAgent: AgentNode = async (state) => {
         agent: "data_analyzer",
         timestamp: new Date(),
         status: "completed",
-        output: `Analysed ${components.length} section${components.length === 1 ? "" : "s"} avec ${modelId}.`,
+        output: `Analyzed ${components.length} section${components.length === 1 ? "" : "s"} with ${modelId}.`,
       },
     ],
   };

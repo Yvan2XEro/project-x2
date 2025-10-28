@@ -152,7 +152,7 @@ function buildPlanningPrompt({
     "Using the context above, produce the full research response with an executive summary, analytical sections, and explicit source references."
   );
 
-  lines.push("Respond in the same language as the user question.");
+  lines.push("Respond in English only.");
 
   return lines.join("\n\n");
 }
@@ -160,10 +160,10 @@ function buildPlanningPrompt({
 function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
   const lines: string[] = [];
 
-  const headline = deliverable.executiveSummary.headline || "Livrable";
+  const headline = deliverable.executiveSummary.headline || "Deliverable";
   lines.push(`# ${headline}`);
   lines.push(
-    `**Mode:** ${deliverable.mode === "exec" ? "Executive" : "Détaillé"} · **Locale:** ${deliverable.locale} · **Template:** ${deliverable.template}`
+    `**Mode:** ${deliverable.mode === "exec" ? "Executive" : "Detailed"} · **Locale:** ${deliverable.locale} · **Template:** ${deliverable.template}`
   );
 
   for (const paragraph of deliverable.executiveSummary.body) {
@@ -173,7 +173,7 @@ function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
   }
 
   if (deliverable.executiveSummary.highlights.length > 0) {
-    lines.push("### Points clés");
+    lines.push("### Key points");
     const highlightLines: string[] = [];
     for (const highlight of deliverable.executiveSummary.highlights) {
       highlightLines.push(`- ${highlight}`);
@@ -193,7 +193,7 @@ function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
     }
 
     if (section.dataHighlights.length > 0) {
-      lines.push("**Données clés :**");
+      lines.push("**Key data:**");
       const highlightBullets: string[] = [];
       for (const item of section.dataHighlights) {
         highlightBullets.push(`- ${item}`);
@@ -202,10 +202,10 @@ function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
     }
 
     if (section.visuals.length > 0) {
-      lines.push("**Visuels pré-rendus :**");
+      lines.push("**Pre-rendered visuals:**");
       const visualBullets: string[] = [];
       for (const visual of section.visuals) {
-        visualBullets.push(`- ${visual.type === "chart" ? "Graphique" : "Tableau"} · ${visual.title} (source : ${visual.source})`);
+        visualBullets.push(`- ${visual.type === "chart" ? "Chart" : "Table"} · ${visual.title} (source: ${visual.source})`);
       }
       lines.push(visualBullets.join("\n"));
     }
@@ -214,7 +214,7 @@ function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
   }
 
   if (deliverable.appendices.length > 0) {
-    lines.push("### Annexes prévues");
+    lines.push("### Planned appendices");
     const appendixBullets: string[] = [];
     for (const appendix of deliverable.appendices) {
       appendixBullets.push(`- ${appendix}`);
@@ -223,7 +223,7 @@ function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
   }
 
   if (deliverable.exports.length > 0) {
-    lines.push("### Exports planifiés");
+    lines.push("### Planned exports");
     const exportBullets: string[] = [];
     for (const currentExport of deliverable.exports) {
       exportBullets.push(`- ${currentExport.format.toUpperCase()} · ${currentExport.filename} (${currentExport.status})`);
@@ -232,15 +232,15 @@ function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
   }
 
   if (deliverable.citations.bibliography.length > 0) {
-    lines.push("### Sources et citations");
+    lines.push("### Sources and citations");
     const citationLines: string[] = [];
     for (const citation of deliverable.citations.bibliography) {
-      citationLines.push(`- [${citation.id}] ${citation.title} — ${citation.publisher} (${citation.trustLevel}, accès ${citation.access})`);
+      citationLines.push(`- [${citation.id}] ${citation.title} — ${citation.publisher} (${citation.trustLevel}, access ${citation.access})`);
     }
     lines.push(citationLines.join("\n"));
   }
 
-  lines.push("### Accessibilité");
+  lines.push("### Accessibility");
   const accessibilityBullets: string[] = [];
   for (const item of deliverable.accessibility.checklist) {
     accessibilityBullets.push(`- ${item}`);
@@ -248,7 +248,7 @@ function renderDeliverableToMarkdown(deliverable: RenderedDeliverable): string {
   lines.push(accessibilityBullets.join("\n"));
 
   lines.push(
-    `**Internationalisation :** fuseau ${deliverable.internationalization.timezone} · formatage ${deliverable.numberFormat} · dates ${deliverable.dateFormat}`
+    `**Internationalization:** timezone ${deliverable.internationalization.timezone} · number format ${deliverable.numberFormat} · dates ${deliverable.dateFormat}`
   );
 
   return lines.join("\n\n");

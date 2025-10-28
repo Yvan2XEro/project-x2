@@ -28,7 +28,7 @@ const ExecutiveSummarySchema = z.object({
 
 function formatSnowflakeForPrompt(results: SnowflakeSearchResult[]): string {
   if (!results.length) {
-    return "Aucun résultat Snowflake disponible.";
+    return "No Snowflake results available.";
   }
   return results
     .slice(0, 2)
@@ -36,14 +36,14 @@ function formatSnowflakeForPrompt(results: SnowflakeSearchResult[]): string {
       const sample = (result.rows ?? []).slice(0, 2);
       return `Section ${result.sectionTitle}: ${result.sql.slice(0, 140)}${
         result.sql.length > 140 ? "…" : ""
-      }\nÉchantillon: ${JSON.stringify(sample, null, 2).slice(0, 400)}`;
+      }\nSample: ${JSON.stringify(sample, null, 2).slice(0, 400)}`;
     })
     .join("\n\n");
 }
 
 function formatWebForPrompt(results: WebSearchResult[]): string {
   if (!results.length) {
-    return "Aucun résumé web n'a été produit.";
+    return "No web summary was produced.";
   }
   return results
     .slice(0, 3)
@@ -56,27 +56,27 @@ function formatWebForPrompt(results: WebSearchResult[]): string {
 
 function formatProprietaryForPrompt(results: ProprietarySearchResult[]): string {
   if (!results.length) {
-    return "Aucun jeu de données propriétaire décrit.";
+    return "No proprietary dataset described.";
   }
   return results
     .slice(0, 3)
     .map(
       (result) =>
-        `${result.dataset} (${result.availability}) – ${result.summary}. Étapes: ${result.nextSteps}`
+        `${result.dataset} (${result.availability}) – ${result.summary}. Steps: ${result.nextSteps}`
     )
     .join("\n");
 }
 
 function formatUserFilesForPrompt(results: UserFileInsight[]): string {
   if (!results.length) {
-    return "Aucun fichier utilisateur signalé.";
+    return "No user files highlighted.";
   }
   return results
     .slice(0, 3)
     .map(
       (result) =>
         `${result.filename}: ${result.summary}${
-          result.keyMetrics.length ? ` (indicateurs: ${result.keyMetrics.join(", ")})` : ""
+          result.keyMetrics.length ? ` (metrics: ${result.keyMetrics.join(", ")})` : ""
         }`
     )
     .join("\n");
@@ -97,53 +97,53 @@ export const dataPresenterAgent: AgentNode = async (state: AgentStateType) => {
   const chatModel = usedModel;
 
   let generatedExecutiveSummary: z.infer<typeof ExecutiveSummarySchema> = {
-    headline: "Synthèse exécutive provisoire",
-    body: ["Impossible de générer une synthèse exécutive détaillée sans résultats d'analyse concrets."],
-    highlights: ["Aucun point clé identifié."],
+    headline: "Preliminary executive summary",
+    body: ["Unable to generate a detailed executive summary without concrete analysis results."],
+    highlights: ["No key points identified."],
   };
 
   if (analysisComponents.length > 0 || snowflakeResults.length > 0) {
     try {
       const summaryPrompt = `
-        Question utilisateur: "${state.userInput}"
+        User question: "${state.userInput}"
 
-        Synthèse des analyses:
+        Analysis synthesis:
         ${JSON.stringify(
           analysisComponents.map((component) => ({
-            titre: component.title,
-            resume: component.analysisSummary,
-            constats: component.preliminaryFindings,
-            visualisation: component.visualization,
+            title: component.title,
+            summary: component.analysisSummary,
+            findings: component.preliminaryFindings,
+            visualization: component.visualization,
           })),
           null,
           2
         )}
 
-        Résultats Snowflake:
+        Snowflake results:
         ${formatSnowflakeForPrompt(snowflakeResults)}
 
-        Insights web:
+        Web insights:
         ${formatWebForPrompt(webResults)}
 
-        Jeux de données propriétaires:
+        Proprietary datasets:
         ${formatProprietaryForPrompt(proprietaryResults)}
 
-        Fichiers utilisateur:
+        User files:
         ${formatUserFilesForPrompt(userFiles)}
 
-        Produit un résumé exécutif, explicite et percutant (titre, 1-2 paragraphes, 3-5 bullet points) pour un rapport de conseil et a titre informatif. dans la meme langue que la question de l'utilisateur et base-toi uniquement sur les elements fournis; seulement en absence de ceux-ci tu peux produit une repose basée sur tes propres connaissances en la matiere.
+        Produce a clear and compelling executive summary (headline, 1-2 paragraphs, 3-5 bullet points) suitable for a consulting report. Respond in English and rely only on the elements provided; only if none are available may you use your own domain knowledge.
       `;
 
       const structuredSummaryModel = chatModel.withStructuredOutput(ExecutiveSummarySchema);
       generatedExecutiveSummary = await structuredSummaryModel.invoke(summaryPrompt);
     } catch (_error) {
       generatedExecutiveSummary = {
-        headline: "Synthèse exécutive à compléter",
+        headline: "Executive summary to be completed",
         body: [
-          "Les analyses doivent être revues manuellement pour formuler une conclusion sur l'opportunité d'investissement.",
+          "Analyses require manual review before forming an investment recommendation.",
         ],
         highlights: [
-          "Conclusions en attente de validation des données propriétaires.",
+          "Conclusions pending validation of proprietary data.",
         ],
       };
     }
@@ -152,8 +152,8 @@ export const dataPresenterAgent: AgentNode = async (state: AgentStateType) => {
 
   const sections: PresentationSection[] = await Promise.all(
     analysisComponents.map(async (component) => {
-      let keyFindings: string[] = ["Impossible de générer des points clés."];
-      let narrative: string = "Impossible de générer un narratif.";
+      let keyFindings: string[] = ["Unable to generate key points."];
+      let narrative: string = "Unable to generate a narrative.";
 
       const sectionWeb = webResults.filter(
         (result) => result.sectionId === component.sectionId
@@ -170,16 +170,16 @@ export const dataPresenterAgent: AgentNode = async (state: AgentStateType) => {
 
       try {
         const sectionContext = `
-          Question utilisateur: "${state.userInput}"
+          User question: "${state.userInput}"
           Section: "${component.title}" — ${component.description}
-          Résumé d'analyse: ${component.analysisSummary}
-          Constat chiffré: ${component.preliminaryFindings}
+          Analysis summary: ${component.analysisSummary}
+          Quantified takeaway: ${component.preliminaryFindings}
           Web: ${formatWebForPrompt(sectionWeb)}
-          Propriétaire: ${formatProprietaryForPrompt(sectionProprietary)}
-          Fichiers utilisateur: ${formatUserFilesForPrompt(sectionFiles)}
+          Proprietary: ${formatProprietaryForPrompt(sectionProprietary)}
+          User files: ${formatUserFilesForPrompt(sectionFiles)}
           Snowflake: ${formatSnowflakeForPrompt(sectionSnowflake)}
 
-          Fournis 2 à 3 messages clés puis un paragraphe narratif intégrant les preuves. Réponds dans la meme langue que la question de l'utilisateur.
+          Provide two to three key messages, then a narrative paragraph that integrates the evidence. Respond in English.
         `;
         
         const structuredKeyFindingsModel = chatModel.withStructuredOutput(SectionSummarySchema);
@@ -213,14 +213,14 @@ export const dataPresenterAgent: AgentNode = async (state: AgentStateType) => {
   );
 
   const payload: PresentationPayload = {
-    executiveSummary: `${generatedExecutiveSummary.headline}\n\n${generatedExecutiveSummary.body.join("\n\n")}\n\nPoints clés :\n${generatedExecutiveSummary.highlights
+    executiveSummary: `${generatedExecutiveSummary.headline}\n\n${generatedExecutiveSummary.body.join("\n\n")}\n\nKey points:\n${generatedExecutiveSummary.highlights
       .map((highlight) => `- ${highlight}`)
       .join("\n")}`.trim(),
     sections,
     appendices: [
-      "Liste des sources et notes d'accès.",
-      "Journal de méthodologie et hypothèses.",
-      "Actions de suivi ou compléments d'experts.",
+      "List of sources and access notes.",
+      "Methodology log and assumptions.",
+      "Follow-up actions or expert addenda.",
     ],
   };
 
