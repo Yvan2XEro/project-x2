@@ -11,6 +11,28 @@ import { twMerge } from 'tailwind-merge';
 import { ChatSDKError, type ErrorCode } from './errors';
 import type { ChatMessage, ChatTools, CustomUIDataTypes } from './types';
 
+type TextUIPart = Extract<
+  UIMessagePart<CustomUIDataTypes, ChatTools>,
+  { type: 'text' }
+>;
+
+type FileUIPart = Extract<
+  UIMessagePart<CustomUIDataTypes, ChatTools>,
+  { type: 'file' }
+>;
+
+export function isTextUIPart(
+  part: UIMessagePart<CustomUIDataTypes, ChatTools>,
+): part is TextUIPart {
+  return part.type === 'text';
+}
+
+export function isFileUIPart(
+  part: UIMessagePart<CustomUIDataTypes, ChatTools>,
+): part is FileUIPart {
+  return part.type === 'file';
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -110,7 +132,7 @@ export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
 
 export function getTextFromMessage(message: ChatMessage): string {
   return message.parts
-    .filter((part) => part.type === 'text')
+    .filter(isTextUIPart)
     .map((part) => part.text)
     .join('');
 }

@@ -2,11 +2,13 @@ import { chatModels } from "@/lib/ai/models";
 import { expect, type Locator, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
+import type { ChatMessage } from "@/lib/types";
 
 declare global {
   interface Window {
     __PROJECT_X_CHAT_TEST__?: {
-      appendMessage: (message: unknown) => void;
+      appendMessage: (message: ChatMessage) => void;
+      setHighlight?: (messageId: string | null) => void;
     };
   }
 }

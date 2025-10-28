@@ -28,6 +28,7 @@ function PureArtifactMessages({
   regenerate,
   isReadonly,
 }: ArtifactMessagesProps) {
+  const noop = () => {};
   const {
     containerRef: messagesContainerRef,
     endRef: messagesEndRef,
@@ -48,8 +49,12 @@ function PureArtifactMessages({
           chatId={chatId}
           isLoading={status === "streaming" && index === messages.length - 1}
           isReadonly={isReadonly}
+          hasReferences={false}
+          isHighlighted={false}
           key={message.id}
           message={message}
+          onClearHighlight={noop}
+          onHighlight={noop}
           regenerate={regenerate}
           requiresScrollPadding={
             hasSentMessage && index === messages.length - 1

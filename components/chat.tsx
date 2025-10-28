@@ -39,6 +39,32 @@ import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
 
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<ChatMessage>;
+
+  if (typeof candidate.id !== "string") {
+    return false;
+  }
+
+  if (
+    candidate.role !== "user" &&
+    candidate.role !== "assistant" &&
+    candidate.role !== "system"
+  ) {
+    return false;
+  }
+
+  if (!Array.isArray(candidate.parts)) {
+    return false;
+  }
+
+  return true;
+}
+
 export function Chat({
   id,
   initialMessages,
@@ -225,11 +251,11 @@ export function Chat({
     }
 
     window.__PROJECT_X_CHAT_TEST__ = {
-      appendMessage(message) {
+      appendMessage(message: ChatMessage) {
         processedMessageIdsRef.current.add(message.id);
         setMessages((previous) => [...previous, message]);
       },
-      setHighlight(messageId) {
+      setHighlight(messageId: string | null) {
         highlightSourceRef.current =
           typeof messageId === "string" ? "sidebar" : null;
         setHighlightedMessageId(messageId);
@@ -261,18 +287,18 @@ export function Chat({
       }
 
       try {
-        const message = JSON.parse(part.data) as ChatMessage;
+        const parsed = JSON.parse(part.data);
 
-        if (!message || typeof message.id !== "string") {
+        if (!isChatMessage(parsed)) {
           continue;
         }
 
-        if (processedMessageIdsRef.current.has(message.id)) {
+        if (processedMessageIdsRef.current.has(parsed.id)) {
           continue;
         }
 
-        processedMessageIdsRef.current.add(message.id);
-        pendingMessages.push(message);
+        processedMessageIdsRef.current.add(parsed.id);
+        pendingMessages.push(parsed);
       } catch (error) {
         console.warn("Failed to parse appended message", error);
       }
@@ -421,7 +447,7 @@ declare global {
   interface Window {
     __PROJECT_X_CHAT_TEST__?: {
       appendMessage: (message: ChatMessage) => void;
-      setHighlight: (messageId: string | null) => void;
+      setHighlight?: (messageId: string | null) => void;
     };
   }
 }
