@@ -119,11 +119,91 @@ export function sanitizeText(text: string) {
   return text.replace('<has_function_call>', '');
 }
 
+function toFallbackText(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value == null) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+
+  return String(value);
+}
+
+function normalizeMessageParts(
+  parts: DBMessage["parts"],
+): UIMessagePart<CustomUIDataTypes, ChatTools>[] {
+  if (Array.isArray(parts)) {
+    return parts as UIMessagePart<CustomUIDataTypes, ChatTools>[];
+  }
+
+  if (typeof parts === "string") {
+    const trimmedParts = parts.trim();
+
+    if (trimmedParts.length > 0) {
+      try {
+        const parsed = JSON.parse(trimmedParts);
+
+        if (Array.isArray(parsed)) {
+          return parsed as UIMessagePart<CustomUIDataTypes, ChatTools>[];
+        }
+
+        if (parsed && typeof parsed === "object" && "type" in parsed) {
+          return [
+            parsed as UIMessagePart<CustomUIDataTypes, ChatTools>,
+          ];
+        }
+      } catch {
+        // Fall through to fallback below when JSON parsing fails.
+      }
+    }
+
+    return [
+      {
+        type: "text",
+        text: toFallbackText(parts),
+      } satisfies TextUIPart,
+    ];
+  }
+
+  if (parts && typeof parts === "object") {
+    if (
+      "type" in parts &&
+      typeof (parts as { type: unknown }).type === "string"
+    ) {
+      return [parts as UIMessagePart<CustomUIDataTypes, ChatTools>];
+    }
+
+    return [
+      {
+        type: "text",
+        text: toFallbackText(parts),
+      } satisfies TextUIPart,
+    ];
+  }
+
+  return [
+    {
+      type: "text",
+      text: toFallbackText(parts),
+    } satisfies TextUIPart,
+  ];
+}
+
 export function convertToUIMessages(messages: DBMessage[]): ChatMessage[] {
   return messages.map((message) => ({
     id: message.id,
-    role: message.role as 'user' | 'assistant' | 'system',
-    parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
+    role: message.role as "user" | "assistant" | "system",
+    parts: normalizeMessageParts(message.parts),
     metadata: {
       createdAt: formatISO(message.createdAt),
     },
